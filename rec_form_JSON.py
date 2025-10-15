@@ -4,173 +4,12 @@ import pandas as pd
 from datetime import datetime, date, time
 import os
 import sys
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
 
 # Database configuration
 DB_PATH = os.path.expanduser("~/Apps/databases/Cruise_Logs.db")
 
-def diagnose_database():
-    """Diagnose database connection and integrity issues."""
-    import subprocess
-
-    print("=" * 50)
-    print("DATABASE DIAGNOSTIC REPORT")
-    print("=" * 50)
-    print(f"Database path: {DB_PATH}")
-
-    # Check if file exists
-    if not os.path.exists(DB_PATH):
-        print("❌ Database file does not exist!")
-        return False
-
-    print("✓ Database file exists")
-
-    # Check file size
-    file_size = os.path.getsize(DB_PATH)
-    print(f"✓ File size: {file_size:,} bytes ({file_size/1024/1024:.2f} MB)")
-
-    # Check if it's a valid SQLite database
-    try:
-        # Check SQLite header
-        with open(DB_PATH, 'rb') as f:
-            header = f.read(16)
-            if header[:6] != b'SQLite':
-                print("❌ File is not a valid SQLite database (invalid header)")
-                return False
-        print("✓ Valid SQLite database header")
-    except Exception as e:
-        print(f"❌ Error reading file: {e}")
-        return False
-
-    # Try to connect and query
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        # Check SQLite integrity
-        cursor.execute("PRAGMA integrity_check")
-        integrity = cursor.fetchone()[0]
-        if integrity == "ok":
-            print("✓ Database integrity check passed")
-        else:
-            print(f"❌ Database integrity check failed: {integrity}")
-
-        # Check tables
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = [row[0] for row in cursor.fetchall()]
-        print(f"✓ Tables found: {', '.join(tables)}")
-
-        # Check recoveries_normalized table specifically
-        if 'recoveries_normalized' in tables:
-            cursor.execute("SELECT COUNT(*) FROM recoveries_normalized")
-            count = cursor.fetchone()[0]
-            print(f"✓ Recoveries_normalized table has {count} records")
-
-            cursor.execute("PRAGMA table_info(recoveries_normalized)")
-            columns = [row[1] for row in cursor.fetchall()]
-            print(f"✓ Recoveries_normalized columns ({len(columns)}): {', '.join(columns[:10])}...")
-        else:
-            print("⚠ Recoveries_normalized table not found")
-
-        conn.close()
-        print("✓ Database connection successful")
-
-    except sqlite3.DatabaseError as e:
-        print(f"❌ Database error: {e}")
-        return False
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        return False
-
-    # Check for locks (macOS specific)
-    try:
-        result = subprocess.run(['lsof', DB_PATH], capture_output=True, text=True)
-        if result.stdout:
-            print("\n⚠ Processes using the database:")
-            print(result.stdout)
-        else:
-            print("✓ No processes currently locking the database")
-    except:
-        pass
-
-    print("\n" + "=" * 50)
-    print("TROUBLESHOOTING TIPS FOR DBEAVER:")
-    print("=" * 50)
-    print("1. In DBeaver, try creating a new connection:")
-    print("   - Connection Type: SQLite")
-    print("   - Database: Browse to ~/Apps/databases/Cruise_Logs.db")
-    print("   - Click 'Test Connection' before finishing")
-    print("\n2. If still failing, try:")
-    print("   - Close all Streamlit apps")
-    print("   - Restart DBeaver")
-    print("   - Use absolute path: " + os.path.abspath(DB_PATH))
-    print("\n3. Alternative: Use sqlite3 command line:")
-    print(f"   sqlite3 {DB_PATH}")
-    print("   .tables")
-    print("   SELECT COUNT(*) FROM recoveries_normalized;")
-
-    return True
-
-def list_all_columns():
-    """List all columns in recoveries_normalized table with special focus on Tube fields."""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        cursor.execute("PRAGMA table_info(recoveries_normalized)")
-        columns = cursor.fetchall()
-
-        print("\n" + "=" * 70)
-        print("ALL COLUMNS IN RECOVERIES_NORMALIZED TABLE")
-        print("=" * 70)
-
-        # Tube-related columns we're looking for
-        tube_columns = ['gmt_tube', 'batdate', 'clk_err_tube', 'batlogic', 'battransmit']
-
-        print("\nTube Section Columns Status:")
-        print("-" * 40)
-        for col in tube_columns:
-            found = any(row[1] == col for row in columns)
-            status = "✅ FOUND" if found else "❌ NOT FOUND"
-            print(f"  {col:20} {status}")
-
-        print("\n\nAll Columns (alphabetically sorted):")
-        print("-" * 40)
-        all_column_names = sorted([row[1] for row in columns])
-        for i, col in enumerate(all_column_names, 1):
-            print(f"{i:3}. {col}")
-
-        # Look for any columns containing 'tube', 'bat', 'gmt', or 'clk'
-        print("\n\nPotentially Related Columns:")
-        print("-" * 40)
-        related_terms = ['tube', 'bat', 'gmt', 'clk', 'clock', 'time']
-        related_cols = []
-        for col in all_column_names:
-            col_lower = col.lower()
-            if any(term in col_lower for term in related_terms):
-                related_cols.append(col)
-
-        if related_cols:
-            for col in related_cols:
-                print(f"  - {col}")
-        else:
-            print("  None found")
-
-        conn.close()
-        print("\n" + "=" * 70)
-        return all_column_names
-
-    except Exception as e:
-        print(f"Error listing columns: {e}")
-        return []
-
-
-# Run diagnostic if this file is executed directly
-if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--diagnose":
-    import sys
-    diagnose_database()
-    sys.exit(0)
-
-# Check if database file exists (silent check)
 if not os.path.exists(DB_PATH):
     print(f"WARNING: Database file not found at {DB_PATH}")
 
@@ -329,6 +168,180 @@ def parse_clock_error_from_mmss(mmss):
     except (ValueError, TypeError):
         return mmss_str
 
+def export_record_to_xml(record_data):
+    """
+    Convert a recovery record to XML format
+
+    Args:
+        record_data: Dictionary containing the recovery record data
+
+    Returns:
+        str: Pretty-formatted XML string
+    """
+    # Create root element
+    root = ET.Element("recovery_record")
+
+    # Add timestamp
+    export_time = ET.SubElement(root, "export_timestamp")
+    export_time.text = datetime.now().isoformat()
+
+    # Group related fields
+    # Basic Information
+    basic_info = ET.SubElement(root, "basic_information")
+    for field in ['site', 'mooringid', 'cruise', 'mooring_status', 'mooring_type', 'personnel']:
+        if field in record_data and record_data[field]:
+            elem = ET.SubElement(basic_info, field)
+            elem.text = str(record_data[field])
+
+    # Location Information
+    location_info = ET.SubElement(root, "location_information")
+    for field in ['argos_latitude', 'argos_longitude', 'release_latitude', 'release_longitude']:
+        if field in record_data and record_data[field]:
+            elem = ET.SubElement(location_info, field)
+            elem.text = str(record_data[field])
+
+    # Time Information
+    time_info = ET.SubElement(root, "time_information")
+    for field in ['touch_time', 'fire_time', 'fire_date', 'release_fire_date', 'relfiredate', 'rec_date', 'recovery_date', 'date']:
+        if field in record_data and record_data[field]:
+            elem = ET.SubElement(time_info, field)
+            elem.text = str(record_data[field])
+
+    # Surface Instrument Information
+    surface_inst = ET.SubElement(root, "surface_instruments")
+    for field in ['buoy_sn', 'buoy_type', 'buoy_hull_color', 'buoy_data_complete', 'buoy_vdata_complete']:
+        if field in record_data and record_data[field]:
+            elem = ET.SubElement(surface_inst, field)
+            elem.text = str(record_data[field])
+
+    # Subsurface Instruments
+    if 'subsurface_instruments' in record_data:
+        try:
+            import json
+            subsurface_data = record_data['subsurface_instruments']
+            if isinstance(subsurface_data, str):
+                subsurface_data = json.loads(subsurface_data)
+
+            subsurface_elem = ET.SubElement(root, "subsurface_instruments")
+            if isinstance(subsurface_data, list):
+                for idx, inst in enumerate(subsurface_data):
+                    inst_elem = ET.SubElement(subsurface_elem, f"instrument_{idx}")
+                    for key, value in inst.items():
+                        if value:
+                            field_elem = ET.SubElement(inst_elem, key)
+                            field_elem.text = str(value)
+        except:
+            pass
+
+    # Nylon Information
+    nylon_info = ET.SubElement(root, "nylon_recovered")
+    for i in range(10):
+        nylon_item = {}
+        for field in ['spool', 'sn', 'length', 'condition']:
+            key = f'nylon_{field}_{i}'
+            if key in record_data and record_data[key]:
+                nylon_item[field] = record_data[key]
+
+        if nylon_item:
+            nylon_elem = ET.SubElement(nylon_info, f"nylon_{i}")
+            for key, value in nylon_item.items():
+                elem = ET.SubElement(nylon_elem, key)
+                elem.text = str(value)
+
+    # Hardware Information
+    hardware_info = ET.SubElement(root, "hardware")
+    for field in ['buoy_hardware_sn', 'buoy_hardware_condition', 'buoy_top_section_sn',
+                  'buoy_glass_balls', 'wire_hardware_sn', 'wire_hardware_condition',
+                  'wire_top_section_sn', 'wire_glass_balls']:
+        if field in record_data and record_data[field]:
+            elem = ET.SubElement(hardware_info, field)
+            elem.text = str(record_data[field])
+
+    # Tube Information
+    tube_info = ET.SubElement(root, "tube_information")
+    for field in ['battery_logic', 'battery_transmit', 'tube_date', 'tube_actual_time',
+                  'tube_inst_time', 'tube_clock_error']:
+        if field in record_data and record_data[field]:
+            elem = ET.SubElement(tube_info, field)
+            elem.text = str(record_data[field])
+
+    # Release Information
+    release_info = ET.SubElement(root, "release_information")
+    for field in ['rel_type_1', 'rel_sn_1', 'rel_1_rec', 'rel_type_2', 'rel_sn_2', 'rel_2_rec',
+                  'release1_release', 'release1_disable', 'release1_enable',
+                  'release2_release', 'release2_disable', 'release2_enable', 'release_comments']:
+        if field in record_data and record_data[field]:
+            elem = ET.SubElement(release_info, field)
+            elem.text = str(record_data[field])
+
+    # Subsurface Clock Errors
+    if 'subsurface_clock_errors' in record_data:
+        try:
+            import json
+            clock_error_data = record_data['subsurface_clock_errors']
+            if isinstance(clock_error_data, str):
+                clock_error_data = json.loads(clock_error_data)
+
+            clock_errors_elem = ET.SubElement(root, "subsurface_clock_errors")
+            if isinstance(clock_error_data, list):
+                for idx, error in enumerate(clock_error_data):
+                    error_elem = ET.SubElement(clock_errors_elem, f"clock_error_{idx}")
+                    for key, value in error.items():
+                        if value:
+                            field_elem = ET.SubElement(error_elem, key)
+                            field_elem.text = str(value)
+        except:
+            pass
+
+    # Pretty print the XML
+    xml_str = ET.tostring(root, encoding='unicode')
+    dom = minidom.parseString(xml_str)
+    pretty_xml = dom.toprettyxml(indent="  ")
+
+    # Remove extra blank lines
+    lines = [line for line in pretty_xml.split('\n') if line.strip()]
+    return '\n'.join(lines)
+
+def calculate_clock_error(actual_time, instrument_time):
+    """
+    Calculate clock error as actual_time - inst_time.
+    Returns the result in M:SS format.
+
+    Args:
+        actual_time: Time string in HH:mm:ss format
+        inst_time: Time string in HH:mm:ss format
+
+    Returns:
+        String in M:SS format, or empty string if calculation fails
+    """
+    if not actual_time or not inst_time:
+        return ''
+
+    try:
+        from datetime import datetime, timedelta
+
+        # Parse times - use a dummy date for calculation
+        actual = datetime.strptime(f"2000-01-01 {actual_time}", "%Y-%m-%d %H:%M:%S")
+        inst = datetime.strptime(f"2000-01-01 {inst_time}", "%Y-%m-%d %H:%M:%S")
+
+        # Calculate difference in seconds
+        diff = actual - inst
+        total_seconds = int(diff.total_seconds())
+
+        # Handle negative values
+        sign = ''
+        if total_seconds < 0:
+            sign = '-'
+            total_seconds = abs(total_seconds)
+
+        # Convert to minutes and seconds
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+
+        return f"{sign}{minutes}:{seconds:02d}"
+    except:
+        return ''
+
 def get_distinct_sites():
     """Get all distinct sites from the database."""
     conn = get_db_connection()
@@ -370,12 +383,12 @@ def search_recoveries(search_criteria):
         where_clauses.append("personnel LIKE ?")
         params.append(personnel_val)
 
-    # Construct query - sort by ID descending for consistent chronological order
+    # Construct query - sort by mooring_id descending to show most recent moorings first
     if where_clauses:
-        query = f"SELECT * FROM recoveries_normalized WHERE {' AND '.join(where_clauses)} ORDER BY id DESC"
+        query = f"SELECT * FROM recoveries_normalized WHERE {' AND '.join(where_clauses)} ORDER BY mooring_id DESC"
         df = pd.read_sql_query(query, conn, params=params, index_col=None, parse_dates=False)
     else:
-        query = "SELECT * FROM recoveries_normalized ORDER BY id DESC LIMIT 100"
+        query = "SELECT * FROM recoveries_normalized ORDER BY mooring_id DESC LIMIT 100"
         df = pd.read_sql_query(query, conn, index_col=None, parse_dates=False)
 
     conn.close()
@@ -665,6 +678,21 @@ def update_recovery_data(recovery_id, form_data):
                     db_data[db_field] = json.dumps(subsurface_instruments)
                     break
 
+            # Also extract and save instrument_addresses separately if the column exists
+            if 'instrument_addresses' in available_columns:
+                instrument_addresses = []
+                for inst in subsurface_instruments:
+                    if inst.get('address'):  # Only include if address is not empty
+                        instrument_addresses.append({
+                            'position': inst.get('position', 0),
+                            'address': inst.get('address', '')
+                        })
+                # Only save if there are actual addresses
+                if instrument_addresses:
+                    db_data['instrument_addresses'] = json.dumps(instrument_addresses)
+                else:
+                    db_data['instrument_addresses'] = None
+
         # Handle Subsurface Clock Errors - store as JSON in instrument_timing column
         subsurface_clock_errors = form_data.get('subsurface_clock_errors', [])
         if subsurface_clock_errors:
@@ -728,6 +756,18 @@ def update_recovery_data(recovery_id, form_data):
 
             if numofrec_data and 'numofrec' in available_columns:
                 db_data['numofrec'] = json.dumps(numofrec_data)
+
+            # Handle errcom JSON column for comments
+            errcom_data = []
+            for sce in subsurface_clock_errors:
+                if sce.get('comments'):
+                    errcom_data.append({
+                        'position': sce.get('position', 0),  # Use 0-based position directly
+                        'value': sce.get('comments', '')
+                    })
+
+            if errcom_data and 'errcom' in available_columns:
+                db_data['errcom'] = json.dumps(errcom_data)
 
         # Handle Release Commands JSON
         release_commands = []
@@ -1132,6 +1172,21 @@ def save_recovery_data(form_data):
                     db_data[db_field] = json.dumps(subsurface_instruments)
                     break
 
+            # Also extract and save instrument_addresses separately if the column exists
+            if 'instrument_addresses' in available_columns:
+                instrument_addresses = []
+                for inst in subsurface_instruments:
+                    if inst.get('address'):  # Only include if address is not empty
+                        instrument_addresses.append({
+                            'position': inst.get('position', 0),
+                            'address': inst.get('address', '')
+                        })
+                # Only save if there are actual addresses
+                if instrument_addresses:
+                    db_data['instrument_addresses'] = json.dumps(instrument_addresses)
+                else:
+                    db_data['instrument_addresses'] = None
+
         # Handle Subsurface Clock Errors - store as JSON in instrument_timing column
         subsurface_clock_errors = form_data.get('subsurface_clock_errors', [])
         if subsurface_clock_errors:
@@ -1195,6 +1250,18 @@ def save_recovery_data(form_data):
 
             if numofrec_data and 'numofrec' in available_columns:
                 db_data['numofrec'] = json.dumps(numofrec_data)
+
+            # Handle errcom JSON column for comments
+            errcom_data = []
+            for sce in subsurface_clock_errors:
+                if sce.get('comments'):
+                    errcom_data.append({
+                        'position': sce.get('position', 0),  # Use 0-based position directly
+                        'value': sce.get('comments', '')
+                    })
+
+            if errcom_data and 'errcom' in available_columns:
+                db_data['errcom'] = json.dumps(errcom_data)
 
         # Handle Release Commands JSON
         release_commands = []
@@ -1338,21 +1405,6 @@ def main():
     # Get list of sites for dropdown
     available_sites = get_distinct_sites()
 
-    # Debug dropdown to show available columns
-    with st.expander("🔧 Debug: Show Database Columns"):
-        if table_exists:
-            st.write("Available columns in recoveries_normalized table:")
-            col_display = st.columns(3)
-            for i, col in enumerate(columns):
-                with col_display[i % 3]:
-                    st.write(f"• {col}")
-
-
-        else:
-            st.write("Table not found")
-
-
-
     # Search section
     if mode == "Search/Edit":
         st.subheader("Search Recoveries")
@@ -1440,6 +1492,31 @@ def main():
                 st.session_state.selected_recovery = current_record_dict
 
 
+
+            # Add export button at the top
+            export_cols = st.columns([3, 1])
+            with export_cols[1]:
+                if st.button("📄 Export to XML", key="top_export", use_container_width=True):
+                    try:
+                        xml_content = export_record_to_xml(current_record_dict)
+                        # Generate filename
+                        site = current_record_dict.get('site', 'unknown')
+                        mooring_id = current_record_dict.get('mooring_id', current_record_dict.get('mooringid', 'unknown'))
+                        cruise = current_record_dict.get('cruise', 'unknown')
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"recovery_{site}_{mooring_id}_{cruise}_{timestamp}.xml"
+
+                        # Create download button
+                        st.download_button(
+                            label="⬇️ Download XML",
+                            data=xml_content,
+                            file_name=filename,
+                            mime="application/xml",
+                            key="top_download_xml"
+                        )
+                        st.success("✅ XML export ready for download!")
+                    except Exception as e:
+                        st.error(f"❌ Error generating XML: {str(e)}")
 
             # Display key info
             info_cols = st.columns(4)
@@ -1926,18 +2003,36 @@ def main():
             # Subsurface Sensors defaults - MUST be parsed first before instrument_timing
             subsurface_instruments_raw = record.get('subsurface_instruments', '')
 
+            # Get instrument_addresses field to determine if addresses should be shown
+            instrument_addresses_raw = record.get('instrument_addresses', '')
+            instrument_addresses_data = []
+            if instrument_addresses_raw:
+                try:
+                    import json
+                    instrument_addresses_data = json.loads(instrument_addresses_raw) if isinstance(instrument_addresses_raw, str) else instrument_addresses_raw
+                except (json.JSONDecodeError, TypeError):
+                    instrument_addresses_data = []
+
             # Parse subsurface instruments JSON
             if subsurface_instruments_raw:
                 try:
                     import json
                     default_subsurface_instruments = json.loads(subsurface_instruments_raw) if isinstance(subsurface_instruments_raw, str) else subsurface_instruments_raw
+
+                    # Build a map of positions to addresses from instrument_addresses
+                    address_map = {}
+                    if instrument_addresses_data and isinstance(instrument_addresses_data, list):
+                        for addr_entry in instrument_addresses_data:
+                            if isinstance(addr_entry, dict) and 'position' in addr_entry and 'address' in addr_entry:
+                                address_map[addr_entry['position']] = addr_entry['address']
+
                     # Format timeout values to HH:mm only and clean serial numbers
-                    for instrument in default_subsurface_instruments:
+                    for idx, instrument in enumerate(default_subsurface_instruments):
                         if 'serial_number' in instrument:
                             instrument['serial_number'] = clean_serial_number(instrument['serial_number'])
-                        # Clear address for Sontek instruments
+                        # Clear address for Sontek instruments (including typos like "Sonteck")
                         inst_type_value = instrument.get('instrument_type') or ''
-                        if inst_type_value.lower() == 'sontek':
+                        if 'sontek' in inst_type_value.lower() or 'sonteck' in inst_type_value.lower():
                             instrument['address'] = ''
                         if 'timeout' in instrument and instrument['timeout']:
                             timeout_str = str(instrument['timeout'])
@@ -1946,8 +2041,15 @@ def main():
                                 time_parts = timeout_str.split(':')
                                 if len(time_parts) >= 2:
                                     instrument['timeout'] = f"{time_parts[0]}:{time_parts[1]}"
-                        # Ensure address field exists (it should be part of the JSON)
-                        if 'address' not in instrument:
+
+                        # Set address based on instrument_addresses data if it exists
+                        # If instrument_addresses is NULL/empty, addresses should be empty
+                        if instrument_addresses_data and address_map:
+                            # Use address from instrument_addresses based on position
+                            position = instrument.get('position', idx)
+                            instrument['address'] = address_map.get(position, '')
+                        else:
+                            # No instrument_addresses data, so clear all addresses
                             instrument['address'] = ''
                 except (json.JSONDecodeError, TypeError):
                     default_subsurface_instruments = []
@@ -2094,6 +2196,26 @@ def main():
                 except (json.JSONDecodeError, TypeError):
                     numofrec_dict = {}
 
+            # Parse errcom JSON for comments
+            errcom_dict = {}
+            errcom_raw = current_record_dict.get('errcom')
+            if errcom_raw:
+                try:
+                    import json
+                    errcom_data = json.loads(errcom_raw) if isinstance(errcom_raw, str) else errcom_raw
+                    if isinstance(errcom_data, list):
+                        for item in errcom_data:
+                            position = item.get('position')
+                            try:
+                                position_idx = int(position) if position is not None else None
+                                if position_idx is not None:
+                                    # Use position directly as array index (both are 0-based)
+                                    errcom_dict[position_idx] = item.get('value', '')
+                            except (ValueError, TypeError):
+                                continue
+                except (json.JSONDecodeError, TypeError):
+                    errcom_dict = {}
+
             # Subsurface Clock Errors defaults - parse from instrument_timing JSON column
             # Build an array that matches indices with subsurface_instruments
             default_subsurface_clock_errors = [None] * 45  # Initialize with None for all possible positions
@@ -2113,7 +2235,7 @@ def main():
                             'filename': '',
                             'battery_voltage': '',
                             'number_of_records': '',
-                            'comments': ''
+                            'comments': errcom_dict.get(idx, '')  # Add comment from errcom if available
                         }
 
             # Now overlay with actual timing data if it exists
@@ -2191,10 +2313,30 @@ def main():
                                     'filename': filename,
                                     'battery_voltage': str(battery_voltage) if battery_voltage else '',
                                     'number_of_records': number_of_records,
-                                    'comments': ''  # Not in current data structure
+                                    'comments': errcom_dict.get(position_idx, '')
                                 }
                 except (json.JSONDecodeError, TypeError):
                     pass  # Keep the pre-populated data if parsing fails
+
+            # Finally, add any comments that weren't already added (for positions without timing data)
+            for idx, comment in errcom_dict.items():
+                if idx < 45 and comment:
+                    if default_subsurface_clock_errors[idx] is None:
+                        # Create a minimal entry if nothing exists at this position
+                        default_subsurface_clock_errors[idx] = {
+                            'sensor_type': '',
+                            'serial_number': '',
+                            'actual_time': '',
+                            'inst_time': '',
+                            'clock_error': '',
+                            'filename': '',
+                            'battery_voltage': '',
+                            'number_of_records': '',
+                            'comments': comment
+                        }
+                    elif not default_subsurface_clock_errors[idx].get('comments'):
+                        # Add comment if the entry exists but has no comment yet
+                        default_subsurface_clock_errors[idx]['comments'] = comment
         else:
             # Default values for new records
             default_site = ""
@@ -2807,10 +2949,18 @@ def main():
             with cols[2]:
                 sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}", label_visibility="collapsed")
             with cols[3]:
-                # Don't show address for Sontek instruments - check from default values
+                # Don't show address for Sontek instruments - check from default values (including typos)
                 inst_type_check = default_instrument.get('instrument_type') or ''
-                is_sontek = inst_type_check.lower() == 'sontek'
-                address_value = '' if is_sontek else default_instrument.get('address', '')
+                is_sontek = 'sontek' in inst_type_check.lower() or 'sonteck' in inst_type_check.lower()
+                # Get address from instrument data (which was set based on instrument_addresses field)
+                db_address = default_instrument.get('address', '')
+                # Handle address value - clear for Sontek, convert None to empty string
+                if is_sontek:
+                    address_value = ''
+                elif db_address is None or db_address == 'None' or db_address == '':
+                    address_value = ''
+                else:
+                    address_value = str(db_address).strip()
                 address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
             with cols[4]:
                 timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}", label_visibility="collapsed", placeholder="HH:mm")
@@ -2839,9 +2989,9 @@ def main():
                     if len(time_parts) >= 2:
                         formatted_timeout = f"{time_parts[0]}:{time_parts[1]}"
 
-                # Clear address for Sontek instruments
+                # Clear address for Sontek instruments (including typos)
                 inst_type_str = inst_type or ''
-                final_address = '' if inst_type_str.lower() == 'sontek' else address
+                final_address = '' if ('sontek' in inst_type_str.lower() or 'sonteck' in inst_type_str.lower()) else address
 
                 subsurface_instruments.append({
                     'position': i,  # Position is just the row index/order
@@ -2878,10 +3028,18 @@ def main():
                 with cols[2]:
                     sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}", label_visibility="collapsed")
                 with cols[3]:
-                    # Don't show address for Sontek instruments - check from default values
+                    # Don't show address for Sontek instruments - check from default values (including typos)
                     inst_type_check = default_instrument.get('instrument_type') or ''
-                    is_sontek = inst_type_check.lower() == 'sontek'
-                    address_value = '' if is_sontek else default_instrument.get('address', '')
+                    is_sontek = 'sontek' in inst_type_check.lower() or 'sonteck' in inst_type_check.lower()
+                    # Get address from instrument data (which was set based on instrument_addresses field)
+                    db_address = default_instrument.get('address', '')
+                    # Handle address value - clear for Sontek, convert None to empty string
+                    if is_sontek:
+                        address_value = ''
+                    elif db_address is None or db_address == 'None' or db_address == '':
+                        address_value = ''
+                    else:
+                        address_value = str(db_address).strip()
                     address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
                 with cols[4]:
                     timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}", label_visibility="collapsed", placeholder="HH:mm")
@@ -2910,9 +3068,9 @@ def main():
                         if len(time_parts) >= 2:
                             formatted_timeout = f"{time_parts[0]}:{time_parts[1]}"
 
-                    # Clear address for Sontek instruments
+                    # Clear address for Sontek instruments (including typos)
                     inst_type_str = inst_type or ''
-                    final_address = '' if inst_type_str.lower() == 'sontek' else address
+                    final_address = '' if ('sontek' in inst_type_str.lower() or 'sonteck' in inst_type_str.lower()) else address
 
                     subsurface_instruments.append({
                         'position': i,  # Position is just the row index/order
@@ -2949,10 +3107,18 @@ def main():
                 with cols[2]:
                     sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}", label_visibility="collapsed")
                 with cols[3]:
-                    # Don't show address for Sontek instruments - check from default values
+                    # Don't show address for Sontek instruments - check from default values (including typos)
                     inst_type_check = default_instrument.get('instrument_type') or ''
-                    is_sontek = inst_type_check.lower() == 'sontek'
-                    address_value = '' if is_sontek else default_instrument.get('address', '')
+                    is_sontek = 'sontek' in inst_type_check.lower() or 'sonteck' in inst_type_check.lower()
+                    # Get address from instrument data (which was set based on instrument_addresses field)
+                    db_address = default_instrument.get('address', '')
+                    # Handle address value - clear for Sontek, convert None to empty string
+                    if is_sontek:
+                        address_value = ''
+                    elif db_address is None or db_address == 'None' or db_address == '':
+                        address_value = ''
+                    else:
+                        address_value = str(db_address).strip()
                     address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
                 with cols[4]:
                     timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}", label_visibility="collapsed", placeholder="HH:mm")
@@ -2981,9 +3147,9 @@ def main():
                         if len(time_parts) >= 2:
                             formatted_timeout = f"{time_parts[0]}:{time_parts[1]}"
 
-                    # Clear address for Sontek instruments
+                    # Clear address for Sontek instruments (including typos)
                     inst_type_str = inst_type or ''
-                    final_address = '' if inst_type_str.lower() == 'sontek' else address
+                    final_address = '' if ('sontek' in inst_type_str.lower() or 'sonteck' in inst_type_str.lower()) else address
 
                     subsurface_instruments.append({
                         'position': i,  # Position is just the row index/order
@@ -3191,8 +3357,14 @@ def main():
                                           label_visibility="collapsed",
                                           placeholder="HH:mm:ss")
         with tube_value_cols[3]:
-            # Ensure the value is a string and handle None/empty cases
+            # Calculate clock error if both times are provided and we're adding a new record
             tube_clock_error_value = '' if pd.isna(default_tube_clock_error) else str(default_tube_clock_error) if default_tube_clock_error not in [None, ''] else ''
+
+            if st.session_state.mode == 'add' and tube_actual_time and tube_inst_time:
+                calculated_error = calculate_clock_error(tube_actual_time, tube_inst_time)
+                if calculated_error:
+                    tube_clock_error_value = calculated_error
+
             tube_clock_error = st.text_input("Tube Clock Error",
                                             value=tube_clock_error_value,
                                             key="tube_clock_error",
@@ -3260,8 +3432,15 @@ def main():
                                         label_visibility="collapsed",
                                         placeholder="HH:mm:ss")
             with cols[4]:
+                # Calculate clock error if both times are provided and we're adding a new record
+                if st.session_state.mode == 'add' and actual_time and inst_time:
+                    calculated_error = calculate_clock_error(actual_time, inst_time)
+                    clock_error_value = calculated_error if calculated_error else default_clock_error.get('clock_error', '')
+                else:
+                    clock_error_value = default_clock_error.get('clock_error', '')
+
                 clock_error = st.text_input(f"Clock Error {i+1}",
-                                          value=default_clock_error.get('clock_error', ''),
+                                          value=clock_error_value,
                                           key=f"sce_clock_error_{i}",
                                           label_visibility="collapsed",
                                           placeholder="M:SS")
@@ -3343,8 +3522,15 @@ def main():
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[4]:
+                    # Calculate clock error if both times are provided and we're adding a new record
+                    if st.session_state.mode == 'add' and actual_time and inst_time:
+                        calculated_error = calculate_clock_error(actual_time, inst_time)
+                        clock_error_value = calculated_error if calculated_error else default_clock_error.get('clock_error', '')
+                    else:
+                        clock_error_value = default_clock_error.get('clock_error', '')
+
                     clock_error = st.text_input(f"Clock Error {i+1}",
-                                              value=default_clock_error.get('clock_error', ''),
+                                              value=clock_error_value,
                                               key=f"sce_clock_error_{i}",
                                               label_visibility="collapsed",
                                               placeholder="M:SS")
@@ -3426,8 +3612,15 @@ def main():
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[4]:
+                    # Calculate clock error if both times are provided and we're adding a new record
+                    if st.session_state.mode == 'add' and actual_time and inst_time:
+                        calculated_error = calculate_clock_error(actual_time, inst_time)
+                        clock_error_value = calculated_error if calculated_error else default_clock_error.get('clock_error', '')
+                    else:
+                        clock_error_value = default_clock_error.get('clock_error', '')
+
                     clock_error = st.text_input(f"Clock Error {i+1}",
-                                              value=default_clock_error.get('clock_error', ''),
+                                              value=clock_error_value,
                                               key=f"sce_clock_error_{i}",
                                               label_visibility="collapsed",
                                               placeholder="M:SS")
@@ -3468,9 +3661,16 @@ def main():
                         'comments': comments
                     })
 
-        # Submit button
-        button_label = "Update Recovery" if mode == "Search/Edit" and st.session_state.selected_recovery is not None else "Save Recovery"
-        submitted = st.form_submit_button(button_label, use_container_width=True)
+        # Submit button and Export button row
+        button_col1, button_col2 = st.columns([3, 1])
+        with button_col1:
+            button_label = "Update Recovery" if mode == "Search/Edit" and st.session_state.selected_recovery is not None else "Save Recovery"
+            submitted = st.form_submit_button(button_label, use_container_width=True)
+
+        # Add Export XML button outside the form (but visible when editing)
+        if mode == "Search/Edit" and st.session_state.selected_recovery is not None:
+            with button_col2:
+                export_placeholder = st.empty()
 
         if submitted:
             # Collect all form data
@@ -3642,6 +3842,40 @@ def main():
                 # Show the collected data
                 with st.expander("View Saved Data"):
                     st.json(form_data)
+
+    # Add export button at the bottom for Search/Edit mode
+    if mode == "Search/Edit" and st.session_state.selected_recovery is not None:
+        st.divider()
+        bottom_cols = st.columns([1, 1, 2])
+        with bottom_cols[0]:
+            if st.button("📄 Export Current Record to XML", key="bottom_export", use_container_width=True):
+                try:
+                    xml_content = export_record_to_xml(st.session_state.selected_recovery)
+                    # Generate filename
+                    site = st.session_state.selected_recovery.get('site', 'unknown')
+                    mooring_id = st.session_state.selected_recovery.get('mooring_id', st.session_state.selected_recovery.get('mooringid', 'unknown'))
+                    cruise = st.session_state.selected_recovery.get('cruise', 'unknown')
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"recovery_{site}_{mooring_id}_{cruise}_{timestamp}.xml"
+
+                    # Store in session state for download
+                    st.session_state['xml_export'] = {
+                        'content': xml_content,
+                        'filename': filename
+                    }
+                    st.success("✅ XML export generated!")
+                except Exception as e:
+                    st.error(f"❌ Error generating XML: {str(e)}")
+
+        with bottom_cols[1]:
+            if 'xml_export' in st.session_state:
+                st.download_button(
+                    label="⬇️ Download XML",
+                    data=st.session_state['xml_export']['content'],
+                    file_name=st.session_state['xml_export']['filename'],
+                    mime="application/xml",
+                    use_container_width=True
+                )
 
 if __name__ == "__main__":
     main()
