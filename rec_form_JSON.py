@@ -2741,14 +2741,18 @@ def main():
         with tube_cols[1]:
             tube_sn = st.text_input("Tube S/N", value=default_tube_sn, key="tube_sn", label_visibility="collapsed")
         with tube_cols[2]:
-            condition_options = ["OK", "Lost", "Damaged", "Fouled"]
-            tube_condition_index = 0  # Default to "OK"
-            if default_tube_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_tube_condition.lower():
-                        tube_condition_index = i
-                        break
+            condition_options = ["", "OK", "Lost", "Damaged", "Fouled"]
+            # Default to blank if no S/N, otherwise default to "OK"
+            if tube_sn:
+                tube_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_tube_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_tube_condition.lower():
+                            tube_condition_index = i
+                            break
+            else:
+                tube_condition_index = 0  # Default to blank when no S/N
             tube_condition = st.selectbox("Tube Condition", options=condition_options, index=tube_condition_index, key="tube_condition", label_visibility="collapsed")
         with tube_cols[3]:
             tube_details = st.text_input("Tube Details", value=default_tube_details, key="tube_details", label_visibility="collapsed")
@@ -2760,13 +2764,17 @@ def main():
         with ptt_cols[1]:
             ptt_hexid_sn = st.text_input("PTT/Hexid S/N", value=default_ptt_hexid_sn, key="ptt_hexid_sn", label_visibility="collapsed")
         with ptt_cols[2]:
-            ptt_condition_index = 0  # Default to "OK"
-            if default_ptt_hexid_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_ptt_hexid_condition.lower():
-                        ptt_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if ptt_hexid_sn:
+                ptt_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_ptt_hexid_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_ptt_hexid_condition.lower():
+                            ptt_condition_index = i
+                            break
+            else:
+                ptt_condition_index = 0  # Default to blank when no S/N
             ptt_hexid_condition = st.selectbox("PTT/Hexid Condition", options=condition_options, index=ptt_condition_index, key="ptt_hexid_condition", label_visibility="collapsed")
         with ptt_cols[3]:
             ptt_hexid_details = st.text_input("PTT/Hexid Details", value=default_ptt_hexid_details, key="ptt_hexid_details", label_visibility="collapsed")
@@ -2778,13 +2786,17 @@ def main():
         with at_rh_cols[1]:
             at_rh_sn = st.text_input("AT/RH S/N", value=default_at_rh_sn, key="at_rh_sn", label_visibility="collapsed")
         with at_rh_cols[2]:
-            at_rh_condition_index = 0  # Default to "OK"
-            if default_at_rh_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_at_rh_condition.lower():
-                        at_rh_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if at_rh_sn:
+                at_rh_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_at_rh_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_at_rh_condition.lower():
+                            at_rh_condition_index = i
+                            break
+            else:
+                at_rh_condition_index = 0  # Default to blank when no S/N
             at_rh_condition = st.selectbox("AT/RH Condition", options=condition_options, index=at_rh_condition_index, key="at_rh_condition", label_visibility="collapsed")
         with at_rh_cols[3]:
             at_rh_details = st.text_input("AT/RH Details", value=default_at_rh_details, key="at_rh_details", label_visibility="collapsed")
@@ -2796,13 +2808,17 @@ def main():
         with wind_cols[1]:
             wind_sn = st.text_input("Wind S/N", value=default_wind_sn, key="wind_sn", label_visibility="collapsed")
         with wind_cols[2]:
-            wind_condition_index = 0  # Default to "OK"
-            if default_wind_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_wind_condition.lower():
-                        wind_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if wind_sn:
+                wind_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_wind_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_wind_condition.lower():
+                            wind_condition_index = i
+                            break
+            else:
+                wind_condition_index = 0  # Default to blank when no S/N
             wind_condition = st.selectbox("Wind Condition", options=condition_options, index=wind_condition_index, key="wind_condition", label_visibility="collapsed")
         with wind_cols[3]:
             wind_details = st.text_input("Wind Details", value=default_wind_details, key="wind_details", label_visibility="collapsed")
@@ -2814,13 +2830,17 @@ def main():
         with rain_cols[1]:
             rain_gauge_sn = st.text_input("Rain Gauge S/N", value=default_rain_gauge_sn, key="rain_gauge_sn", label_visibility="collapsed")
         with rain_cols[2]:
-            rain_condition_index = 0  # Default to "OK"
-            if default_rain_gauge_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_rain_gauge_condition.lower():
-                        rain_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if rain_gauge_sn:
+                rain_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_rain_gauge_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_rain_gauge_condition.lower():
+                            rain_condition_index = i
+                            break
+            else:
+                rain_condition_index = 0  # Default to blank when no S/N
             rain_gauge_condition = st.selectbox("Rain Gauge Condition", options=condition_options, index=rain_condition_index, key="rain_gauge_condition", label_visibility="collapsed")
         with rain_cols[3]:
             rain_gauge_details = st.text_input("Rain Gauge Details", value=default_rain_gauge_details, key="rain_gauge_details", label_visibility="collapsed")
@@ -2832,13 +2852,17 @@ def main():
         with sw_cols[1]:
             sw_radiation_sn = st.text_input("SW Radiation S/N", value=default_sw_radiation_sn, key="sw_radiation_sn", label_visibility="collapsed")
         with sw_cols[2]:
-            sw_condition_index = 0  # Default to "OK"
-            if default_sw_radiation_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_sw_radiation_condition.lower():
-                        sw_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if sw_radiation_sn:
+                sw_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_sw_radiation_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_sw_radiation_condition.lower():
+                            sw_condition_index = i
+                            break
+            else:
+                sw_condition_index = 0  # Default to blank when no S/N
             sw_radiation_condition = st.selectbox("SW Radiation Condition", options=condition_options, index=sw_condition_index, key="sw_radiation_condition", label_visibility="collapsed")
         with sw_cols[3]:
             sw_radiation_details = st.text_input("SW Radiation Details", value=default_sw_radiation_details, key="sw_radiation_details", label_visibility="collapsed")
@@ -2850,13 +2874,17 @@ def main():
         with lw_cols[1]:
             lw_radiation_sn = st.text_input("LW Radiation S/N", value=default_lw_radiation_sn, key="lw_radiation_sn", label_visibility="collapsed")
         with lw_cols[2]:
-            lw_condition_index = 0  # Default to "OK"
-            if default_lw_radiation_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_lw_radiation_condition.lower():
-                        lw_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if lw_radiation_sn:
+                lw_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_lw_radiation_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_lw_radiation_condition.lower():
+                            lw_condition_index = i
+                            break
+            else:
+                lw_condition_index = 0  # Default to blank when no S/N
             lw_radiation_condition = st.selectbox("LW Radiation Condition", options=condition_options, index=lw_condition_index, key="lw_radiation_condition", label_visibility="collapsed")
         with lw_cols[3]:
             lw_radiation_details = st.text_input("LW Radiation Details", value=default_lw_radiation_details, key="lw_radiation_details", label_visibility="collapsed")
@@ -2868,13 +2896,17 @@ def main():
         with barometer_cols[1]:
             barometer_sn = st.text_input("Barometer S/N", value=default_barometer_sn, key="barometer_sn", label_visibility="collapsed")
         with barometer_cols[2]:
-            barometer_condition_index = 0  # Default to "OK"
-            if default_barometer_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_barometer_condition.lower():
-                        barometer_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if barometer_sn:
+                barometer_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_barometer_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_barometer_condition.lower():
+                            barometer_condition_index = i
+                            break
+            else:
+                barometer_condition_index = 0  # Default to blank when no S/N
             barometer_condition = st.selectbox("Barometer Condition", options=condition_options, index=barometer_condition_index, key="barometer_condition", label_visibility="collapsed")
         with barometer_cols[3]:
             barometer_details = st.text_input("Barometer Details", value=default_barometer_details, key="barometer_details", label_visibility="collapsed")
@@ -2886,13 +2918,17 @@ def main():
         with seacat_cols[1]:
             seacat_sn = st.text_input("SeaCat S/N", value=default_seacat_sn, key="seacat_sn", label_visibility="collapsed")
         with seacat_cols[2]:
-            seacat_condition_index = 0  # Default to "OK"
-            if default_seacat_condition:
-                # Case-insensitive matching
-                for i, option in enumerate(condition_options):
-                    if option.lower() == default_seacat_condition.lower():
-                        seacat_condition_index = i
-                        break
+            # Default to blank if no S/N, otherwise default to "OK"
+            if seacat_sn:
+                seacat_condition_index = 1  # Default to "OK" when there's a S/N
+                if default_seacat_condition:
+                    # Case-insensitive matching
+                    for i, option in enumerate(condition_options):
+                        if option.lower() == default_seacat_condition.lower():
+                            seacat_condition_index = i
+                            break
+            else:
+                seacat_condition_index = 0  # Default to blank when no S/N
             seacat_condition = st.selectbox("SeaCat Condition", options=condition_options, index=seacat_condition_index, key="seacat_condition", label_visibility="collapsed")
         with seacat_cols[3]:
             seacat_details = st.text_input("SeaCat Details", value=default_seacat_details, key="seacat_details", label_visibility="collapsed")
@@ -3360,21 +3396,20 @@ def main():
             # Calculate clock error if both times are provided and we're adding a new record
             tube_clock_error_value = '' if pd.isna(default_tube_clock_error) else str(default_tube_clock_error) if default_tube_clock_error not in [None, ''] else ''
 
-            if st.session_state.mode == 'add' and tube_actual_time and tube_inst_time:
-                calculated_error = calculate_clock_error(tube_actual_time, tube_inst_time)
-                if calculated_error:
-                    tube_clock_error_value = calculated_error
-
             tube_clock_error = st.text_input("Tube Clock Error",
                                             value=tube_clock_error_value,
                                             key="tube_clock_error",
                                             label_visibility="collapsed",
-                                            placeholder="M:SS")
+                                            placeholder="M:SS",
+                                            help="Will auto-calculate (Actual - Inst) when form is submitted" if st.session_state.mode == 'Add New' else None)
 
         # Subsurface Clock Errors section
         st.markdown("---")
         st.markdown("#### Subsurface Clock Errors")
-        st.markdown("*Record clock error information for subsurface instruments*")
+        if st.session_state.mode == 'Add New':
+            st.markdown("*Clock Error will auto-calculate as (Actual Time - Inst. Time) when the form is submitted*")
+        else:
+            st.markdown("*Record clock error information for subsurface instruments*")
 
         # Create table headers (two-line headers)
         header_cols = st.columns([1, 0.8, 1, 1, 0.8, 1.2, 1, 1.2, 2])
@@ -3432,18 +3467,12 @@ def main():
                                         label_visibility="collapsed",
                                         placeholder="HH:mm:ss")
             with cols[4]:
-                # Calculate clock error if both times are provided and we're adding a new record
-                if st.session_state.mode == 'add' and actual_time and inst_time:
-                    calculated_error = calculate_clock_error(actual_time, inst_time)
-                    clock_error_value = calculated_error if calculated_error else default_clock_error.get('clock_error', '')
-                else:
-                    clock_error_value = default_clock_error.get('clock_error', '')
-
+                clock_error_value = default_clock_error.get('clock_error', '')
                 clock_error = st.text_input(f"Clock Error {i+1}",
                                           value=clock_error_value,
                                           key=f"sce_clock_error_{i}",
                                           label_visibility="collapsed",
-                                          placeholder="M:SS")
+                                          placeholder="Auto-calc" if st.session_state.mode == 'Add New' else "M:SS")
             with cols[5]:
                 filename = st.text_input(f"Filename {i+1}",
                                        value=default_clock_error.get('filename', ''),
@@ -3511,10 +3540,10 @@ def main():
                                             label_visibility="collapsed")
                 with cols[2]:
                     actual_time = st.text_input(f"Actual Time {i+1}",
-                                              value=default_clock_error.get('actual_time', ''),
-                                              key=f"sce_actual_time_{i}",
-                                              label_visibility="collapsed",
-                                              placeholder="HH:mm:ss")
+                                            value=default_clock_error.get('actual_time', ''),
+                                            key=f"sce_actual_time_{i}",
+                                            label_visibility="collapsed",
+                                            placeholder="HH:mm:ss")
                 with cols[3]:
                     inst_time = st.text_input(f"Inst Time {i+1}",
                                             value=default_clock_error.get('inst_time', ''),
@@ -3522,18 +3551,12 @@ def main():
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[4]:
-                    # Calculate clock error if both times are provided and we're adding a new record
-                    if st.session_state.mode == 'add' and actual_time and inst_time:
-                        calculated_error = calculate_clock_error(actual_time, inst_time)
-                        clock_error_value = calculated_error if calculated_error else default_clock_error.get('clock_error', '')
-                    else:
-                        clock_error_value = default_clock_error.get('clock_error', '')
-
+                    clock_error_value = default_clock_error.get('clock_error', '')
                     clock_error = st.text_input(f"Clock Error {i+1}",
                                               value=clock_error_value,
                                               key=f"sce_clock_error_{i}",
                                               label_visibility="collapsed",
-                                              placeholder="M:SS")
+                                              placeholder="Auto-calc" if st.session_state.mode == 'Add New' else "M:SS")
                 with cols[5]:
                     filename = st.text_input(f"Filename {i+1}",
                                            value=default_clock_error.get('filename', ''),
@@ -3601,10 +3624,10 @@ def main():
                                             label_visibility="collapsed")
                 with cols[2]:
                     actual_time = st.text_input(f"Actual Time {i+1}",
-                                              value=default_clock_error.get('actual_time', ''),
-                                              key=f"sce_actual_time_{i}",
-                                              label_visibility="collapsed",
-                                              placeholder="HH:mm:ss")
+                                            value=default_clock_error.get('actual_time', ''),
+                                            key=f"sce_actual_time_{i}",
+                                            label_visibility="collapsed",
+                                            placeholder="HH:mm:ss")
                 with cols[3]:
                     inst_time = st.text_input(f"Inst Time {i+1}",
                                             value=default_clock_error.get('inst_time', ''),
@@ -3612,18 +3635,12 @@ def main():
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[4]:
-                    # Calculate clock error if both times are provided and we're adding a new record
-                    if st.session_state.mode == 'add' and actual_time and inst_time:
-                        calculated_error = calculate_clock_error(actual_time, inst_time)
-                        clock_error_value = calculated_error if calculated_error else default_clock_error.get('clock_error', '')
-                    else:
-                        clock_error_value = default_clock_error.get('clock_error', '')
-
+                    clock_error_value = default_clock_error.get('clock_error', '')
                     clock_error = st.text_input(f"Clock Error {i+1}",
                                               value=clock_error_value,
                                               key=f"sce_clock_error_{i}",
                                               label_visibility="collapsed",
-                                              placeholder="M:SS")
+                                              placeholder="Auto-calc" if st.session_state.mode == 'Add New' else "M:SS")
                 with cols[5]:
                     filename = st.text_input(f"Filename {i+1}",
                                            value=default_clock_error.get('filename', ''),
@@ -3673,6 +3690,27 @@ def main():
                 export_placeholder = st.empty()
 
         if submitted:
+            # Auto-calculate clock errors for new records
+            if st.session_state.mode == 'Add New':
+                # Calculate tube clock error
+                tube_actual_time_val = tube_actual_time
+                tube_inst_time_val = tube_inst_time
+                if tube_actual_time_val and tube_inst_time_val:
+                    calculated_error = calculate_clock_error(tube_actual_time_val, tube_inst_time_val)
+                    if calculated_error:
+                        tube_clock_error = calculated_error
+
+                # Recalculate subsurface_clock_errors with auto-calculated values
+                subsurface_clock_errors_updated = []
+                for item in subsurface_clock_errors:
+                    if item['actual_time'] and item['inst_time']:
+                        calculated_error = calculate_clock_error(item['actual_time'], item['inst_time'])
+                        if calculated_error:
+                            # Update with calculated value (in seconds)
+                            item['clock_error'] = parse_clock_error_from_mmss(calculated_error)
+                    subsurface_clock_errors_updated.append(item)
+                subsurface_clock_errors = subsurface_clock_errors_updated
+
             # Collect all form data
             form_data = {
                 'site': site,
