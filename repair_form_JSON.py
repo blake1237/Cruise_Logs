@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 # Database configuration
-DB_PATH = os.path.expanduser("~/Apps/databases/Cruise_Logs.db")
+DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
 
 def check_tube_data():
     """Diagnostic function to check tube data for specific moorings."""
@@ -362,13 +362,15 @@ def ensure_columns_exist():
             'bat_logic', 'bat_transmit', 'file_name'
         ]
 
-        # Add Met Obs columns
+        # Add Met Obs JSON columns
         met_obs_columns = [
-            'ship_date', 'ship_time', 'ship_wind_dir', 'ship_wind_spd',
-            'ship_air_temp', 'ship_sst', 'ship_ssc', 'ship_rh',
-            'buoy_date', 'buoy_time', 'buoy_wind_dir', 'buoy_wind_spd',
-            'buoy_air_temp', 'buoy_sst', 'buoy_ssc', 'buoy_rh'
+            'met_ship',
+            'met_buoy'
         ]
+
+        # rep_comments column is used for Description of Visit
+        # (assuming rep_comments already exists in the table)
+        description_columns = []
 
         for col in sensor_columns:
             if col not in existing_columns:
@@ -397,6 +399,15 @@ def ensure_columns_exist():
                 conn.commit()
                 print(f"Added {col} column to repair_normalized table")
 
+        for col in description_columns:
+            if col not in existing_columns:
+                cursor.execute(f"""
+                    ALTER TABLE repair_normalized
+                    ADD COLUMN {col} TEXT
+                """)
+                conn.commit()
+                print(f"Added {col} column to repair_normalized table")
+
         conn.close()
         return True
     except Exception as e:
@@ -405,7 +416,7 @@ def ensure_columns_exist():
 
 
 def migrate_old_columns():
-    """Migrate data from old column names to new column names if needed."""
+    """Migrate data from old column names to new ones"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -435,6 +446,140 @@ def migrate_old_columns():
             """)
             conn.commit()
             print(f"Migrated {cursor.rowcount} records from buoy_condition to buoy_details")
+
+        # Migrate Met Obs individual columns to JSON format
+        met_ship_cols = ['ship_date', 'ship_time', 'ship_wind_dir', 'ship_wind_spd',
+                        'ship_air_temp', 'ship_sst', 'ship_ssc', 'ship_rh']
+        met_buoy_cols = ['buoy_date', 'buoy_time', 'buoy_wind_dir', 'buoy_wind_spd',
+                        'buoy_air_temp', 'buoy_sst', 'buoy_ssc', 'buoy_rh']
+
+        # Check if old columns exist and new JSON columns exist
+        if all(col in columns for col in met_ship_cols) and 'met_ship' in columns:
+            cursor.execute("""
+                SELECT id, ship_date, ship_time, ship_wind_dir, ship_wind_spd,
+                       ship_air_temp, ship_sst, ship_ssc, ship_rh
+                FROM repair_normalized
+                WHERE met_ship IS NULL
+                AND (ship_date IS NOT NULL OR ship_time IS NOT NULL OR
+                     ship_wind_dir IS NOT NULL OR ship_wind_spd IS NOT NULL OR
+                     ship_air_temp IS NOT NULL OR ship_sst IS NOT NULL OR
+                     ship_ssc IS NOT NULL OR ship_rh IS NOT NULL)
+            """)
+
+            records = cursor.fetchall()
+            for rec in records:
+                met_ship_data = {}
+                if rec[1]:  # ship_date
+                    met_ship_data['date'] = f"{rec[1]}T00:00:00"
+                if rec[2]:  # ship_time
+                    time_str = str(rec[2])
+                    if len(time_str) == 5:  # HH:MM format
+                        time_str += ':00'
+                    met_ship_data['time'] = time_str
+                if rec[3] is not None:  # ship_wind_dir
+                    try:
+                        met_ship_data['wind_dir'] = float(rec[3])
+                    except:
+                        pass
+                if rec[4] is not None:  # ship_wind_spd
+                    try:
+                        met_ship_data['wind_spd'] = float(rec[4])
+                    except:
+                        pass
+                if rec[5] is not None:  # ship_air_temp
+                    try:
+                        met_ship_data['air_temp'] = float(rec[5])
+                    except:
+                        pass
+                if rec[6] is not None:  # ship_sst
+                    try:
+                        met_ship_data['sst'] = float(rec[6])
+                    except:
+                        pass
+                if rec[7] is not None:  # ship_ssc
+                    try:
+                        met_ship_data['ssc'] = float(rec[7])
+                    except:
+                        pass
+                if rec[8] is not None:  # ship_rh
+                    try:
+                        met_ship_data['rh'] = float(rec[8])
+                    except:
+                        pass
+
+                if met_ship_data:
+                    cursor.execute("""
+                        UPDATE repair_normalized
+                        SET met_ship = ?
+                        WHERE id = ?
+                    """, (json.dumps(met_ship_data), rec[0]))
+
+            conn.commit()
+            print(f"Migrated {len(records)} records to met_ship JSON format")
+
+        # Migrate buoy data
+        if all(col in columns for col in met_buoy_cols) and 'met_buoy' in columns:
+            cursor.execute("""
+                SELECT id, buoy_date, buoy_time, buoy_wind_dir, buoy_wind_spd,
+                       buoy_air_temp, buoy_sst, buoy_ssc, buoy_rh
+                FROM repair_normalized
+                WHERE met_buoy IS NULL
+                AND (buoy_date IS NOT NULL OR buoy_time IS NOT NULL OR
+                     buoy_wind_dir IS NOT NULL OR buoy_wind_spd IS NOT NULL OR
+                     buoy_air_temp IS NOT NULL OR buoy_sst IS NOT NULL OR
+                     buoy_ssc IS NOT NULL OR buoy_rh IS NOT NULL)
+            """)
+
+            records = cursor.fetchall()
+            for rec in records:
+                met_buoy_data = {}
+                if rec[1]:  # buoy_date
+                    met_buoy_data['date'] = f"{rec[1]}T00:00:00"
+                if rec[2]:  # buoy_time
+                    time_str = str(rec[2])
+                    if len(time_str) == 5:  # HH:MM format
+                        time_str += ':00'
+                    met_buoy_data['time'] = time_str
+                if rec[3] is not None:  # buoy_wind_dir
+                    try:
+                        met_buoy_data['wind_dir'] = float(rec[3])
+                    except:
+                        pass
+                if rec[4] is not None:  # buoy_wind_spd
+                    try:
+                        met_buoy_data['wind_spd'] = float(rec[4])
+                    except:
+                        pass
+                if rec[5] is not None:  # buoy_air_temp
+                    try:
+                        met_buoy_data['air_temp'] = float(rec[5])
+                    except:
+                        pass
+                if rec[6] is not None:  # buoy_sst
+                    try:
+                        met_buoy_data['sst'] = float(rec[6])
+                    except:
+                        pass
+                if rec[7] is not None:  # buoy_ssc
+                    try:
+                        met_buoy_data['ssc'] = float(rec[7])
+                    except:
+                        pass
+                if rec[8] is not None:  # buoy_rh
+                    try:
+                        met_buoy_data['rh'] = float(rec[8])
+                    except:
+                        pass
+
+                if met_buoy_data:
+                    cursor.execute("""
+                        UPDATE repair_normalized
+                        SET met_buoy = ?
+                        WHERE id = ?
+                    """, (json.dumps(met_buoy_data), rec[0]))
+
+            conn.commit()
+            print(f"Migrated {len(records)} records to met_buoy JSON format")
 
         conn.close()
         return True
@@ -640,6 +785,7 @@ def parse_int_safe(value):
         return None
 
 
+
 def main():
     # Page configuration
     st.set_page_config(
@@ -757,7 +903,7 @@ def main():
         if st.session_state.search_results is not None and not st.session_state.search_results.empty:
             st.subheader("Search Results")
 
-            # Navigation
+            # Navigation and Mooring ID display
             if len(st.session_state.search_results) > 1:
                 col1, col2, col3 = st.columns([1, 3, 1])
                 with col1:
@@ -765,11 +911,18 @@ def main():
                         st.session_state.current_record_index -= 1
                         st.rerun()
                 with col2:
-                    st.write(f"Record {st.session_state.current_record_index + 1} of {len(st.session_state.search_results)}")
+                    current_record = st.session_state.search_results.iloc[st.session_state.current_record_index]
+                    mooring_id = current_record.get('mooring_id', 'N/A')
+                    st.markdown(f"<div style='text-align: center;'><span style='font-size: 24px; font-weight: bold; color: #1f77b4;'>Mooring ID: {mooring_id}</span><br><span style='font-size: 14px;'>Record {st.session_state.current_record_index + 1} of {len(st.session_state.search_results)}</span></div>", unsafe_allow_html=True)
                 with col3:
                     if st.button("Next ▶", disabled=st.session_state.current_record_index >= len(st.session_state.search_results) - 1):
                         st.session_state.current_record_index += 1
                         st.rerun()
+            elif len(st.session_state.search_results) == 1:
+                # Display mooring ID even for single result
+                current_record = st.session_state.search_results.iloc[0]
+                mooring_id = current_record.get('mooring_id', 'N/A')
+                st.markdown(f"<div style='text-align: center;'><span style='font-size: 24px; font-weight: bold; color: #1f77b4;'>Mooring ID: {mooring_id}</span><br><span style='font-size: 14px;'>1 Record Found</span></div>", unsafe_allow_html=True)
 
             # Get current record
             if len(st.session_state.search_results) > 0:
@@ -851,7 +1004,10 @@ def main():
         default_bat_transmit = ""
         default_file_name = ""
 
-        # Met Obs defaults
+        # Met Obs defaults - parse from JSON if available
+        default_met_ship = {}
+        default_met_buoy = {}
+
         default_ship_date = None
         default_ship_time = ""
         default_ship_wind_dir = ""
@@ -1052,42 +1208,73 @@ def main():
             default_bat_transmit = str(rec.get('bat_transmit', '')) if rec.get('bat_transmit') else ''
             default_file_name = str(rec.get('file_name', '')) if rec.get('file_name') else ''
 
-            # Met Obs defaults
-            # Handle ship_date
-            ship_date_str = rec.get('ship_date', '')
-            if ship_date_str and ship_date_str not in ['', 'None', 'null']:
-                try:
-                    default_ship_date = datetime.strptime(str(ship_date_str), '%Y-%m-%d').date()
-                except:
+            # Met Obs defaults - parse from JSON columns
+            # Parse met_ship JSON
+            default_met_ship = parse_json_field(rec.get('met_ship', '{}'))
+            if default_met_ship:
+                # Handle ship_date
+                ship_date_str = default_met_ship.get('date', '')
+                if ship_date_str and ship_date_str not in ['', 'None', 'null']:
+                    try:
+                        default_ship_date = datetime.strptime(str(ship_date_str).split('T')[0], '%Y-%m-%d').date()
+                    except:
+                        default_ship_date = None
+                else:
                     default_ship_date = None
+
+                default_ship_time = str(default_met_ship.get('time', ''))[:5] if default_met_ship.get('time') else ''  # Format as HH:MM
+                default_ship_wind_dir = str(default_met_ship.get('wind_dir', '')) if default_met_ship.get('wind_dir') is not None else ''
+                default_ship_wind_spd = str(default_met_ship.get('wind_spd', '')) if default_met_ship.get('wind_spd') is not None else ''
+                default_ship_air_temp = str(default_met_ship.get('air_temp', '')) if default_met_ship.get('air_temp') is not None else ''
+                default_ship_sst = str(default_met_ship.get('sst', '')) if default_met_ship.get('sst') is not None else ''
+                # Handle both uppercase 'SSC' and lowercase 'ssc'
+                ssc_value = default_met_ship.get('SSC') if 'SSC' in default_met_ship else default_met_ship.get('ssc')
+                default_ship_ssc = str(ssc_value) if ssc_value not in [None, ''] else ''
+                default_ship_rh = str(default_met_ship.get('rh', '')) if default_met_ship.get('rh') is not None else ''
             else:
                 default_ship_date = None
+                default_ship_time = ""
+                default_ship_wind_dir = ""
+                default_ship_wind_spd = ""
+                default_ship_air_temp = ""
+                default_ship_sst = ""
+                default_ship_ssc = ""
+                default_ship_rh = ""
 
-            default_ship_time = str(rec.get('ship_time', '')) if rec.get('ship_time') else ''
-            default_ship_wind_dir = str(rec.get('ship_wind_dir', '')) if rec.get('ship_wind_dir') else ''
-            default_ship_wind_spd = str(rec.get('ship_wind_spd', '')) if rec.get('ship_wind_spd') else ''
-            default_ship_air_temp = str(rec.get('ship_air_temp', '')) if rec.get('ship_air_temp') else ''
-            default_ship_sst = str(rec.get('ship_sst', '')) if rec.get('ship_sst') else ''
-            default_ship_ssc = str(rec.get('ship_ssc', '')) if rec.get('ship_ssc') else ''
-            default_ship_rh = str(rec.get('ship_rh', '')) if rec.get('ship_rh') else ''
-
-            # Handle buoy_date
-            buoy_date_str = rec.get('buoy_date', '')
-            if buoy_date_str and buoy_date_str not in ['', 'None', 'null']:
-                try:
-                    default_buoy_date = datetime.strptime(str(buoy_date_str), '%Y-%m-%d').date()
-                except:
+            # Parse met_buoy JSON
+            default_met_buoy = parse_json_field(rec.get('met_buoy', '{}'))
+            if default_met_buoy:
+                # Handle buoy_date
+                buoy_date_str = default_met_buoy.get('date', '')
+                if buoy_date_str and buoy_date_str not in ['', 'None', 'null']:
+                    try:
+                        default_buoy_date = datetime.strptime(str(buoy_date_str).split('T')[0], '%Y-%m-%d').date()
+                    except:
+                        default_buoy_date = None
+                else:
                     default_buoy_date = None
+
+                default_buoy_time = str(default_met_buoy.get('time', ''))[:5] if default_met_buoy.get('time') else ''  # Format as HH:MM
+                default_buoy_wind_dir = str(default_met_buoy.get('wind_dir', '')) if default_met_buoy.get('wind_dir') is not None else ''
+                default_buoy_wind_spd = str(default_met_buoy.get('wind_spd', '')) if default_met_buoy.get('wind_spd') is not None else ''
+                default_buoy_air_temp = str(default_met_buoy.get('air_temp', '')) if default_met_buoy.get('air_temp') is not None else ''
+                default_buoy_sst = str(default_met_buoy.get('sst', '')) if default_met_buoy.get('sst') is not None else ''
+                # Handle both uppercase 'SSC' and lowercase 'ssc'
+                ssc_value = default_met_buoy.get('SSC') if 'SSC' in default_met_buoy else default_met_buoy.get('ssc')
+                default_buoy_ssc = str(ssc_value) if ssc_value not in [None, ''] else ''
+                default_buoy_rh = str(default_met_buoy.get('rh', '')) if default_met_buoy.get('rh') is not None else ''
             else:
                 default_buoy_date = None
+                default_buoy_time = ""
+                default_buoy_wind_dir = ""
+                default_buoy_wind_spd = ""
+                default_buoy_air_temp = ""
+                default_buoy_sst = ""
+                default_buoy_ssc = ""
+                default_buoy_rh = ""
 
-            default_buoy_time = str(rec.get('buoy_time', '')) if rec.get('buoy_time') else ''
-            default_buoy_wind_dir = str(rec.get('buoy_wind_dir', '')) if rec.get('buoy_wind_dir') else ''
-            default_buoy_wind_spd = str(rec.get('buoy_wind_spd', '')) if rec.get('buoy_wind_spd') else ''
-            default_buoy_air_temp = str(rec.get('buoy_air_temp', '')) if rec.get('buoy_air_temp') else ''
-            default_buoy_sst = str(rec.get('buoy_sst', '')) if rec.get('buoy_sst') else ''
-            default_buoy_ssc = str(rec.get('buoy_ssc', '')) if rec.get('buoy_ssc') else ''
-            default_buoy_rh = str(rec.get('buoy_rh', '')) if rec.get('buoy_rh') else ''
+            # Description of Visit - now using rep_comments column
+            default_description_of_visit = str(rec.get('rep_comments', '')) if rec.get('rep_comments') else ''
 
             # Deployment/Recovery tracking
 
@@ -1177,6 +1364,9 @@ def main():
             default_buoy_sst = ""
             default_buoy_ssc = ""
             default_buoy_rh = ""
+
+            # Description of Visit - default empty for new records
+            default_description_of_visit = ""
 
             record_id = None
 
@@ -1610,6 +1800,18 @@ def main():
                 buoy_rh = st.text_input("Buoy RH", value=default_buoy_rh, key="buoy_rh", placeholder="%", label_visibility="collapsed")
 
             st.markdown("---")
+            st.markdown("### Description of Visit")
+
+            description_of_visit = st.text_area(
+                "Description of Visit",
+                value=default_description_of_visit,
+                height=625,  # Approximately 25 lines
+                key="description_of_visit",
+                label_visibility="collapsed",
+                placeholder="Enter detailed description of the visit, repairs performed, observations, etc."
+            )
+
+            st.markdown("---")
 
             # Form submission
             col_submit1, col_submit2, col_submit3 = st.columns([1, 1, 1])
@@ -1685,27 +1887,69 @@ def main():
                     'bat_logic': bat_logic.strip() if bat_logic else None,
                     'bat_transmit': bat_transmit.strip() if bat_transmit else None,
                     'file_name': file_name.strip() if file_name else None,
-                    # Met Obs fields
-                    'ship_date': parse_date_input(ship_date) if ship_date else None,
-                    'ship_time': ship_time.strip() if ship_time else None,
-                    'ship_wind_dir': ship_wind_dir.strip() if ship_wind_dir else None,
-                    'ship_wind_spd': ship_wind_spd.strip() if ship_wind_spd else None,
-                    'ship_air_temp': ship_air_temp.strip() if ship_air_temp else None,
-                    'ship_sst': ship_sst.strip() if ship_sst else None,
-                    'ship_ssc': ship_ssc.strip() if ship_ssc else None,
-                    'ship_rh': ship_rh.strip() if ship_rh else None,
-                    'buoy_date': parse_date_input(buoy_date) if buoy_date else None,
-                    'buoy_time': buoy_time.strip() if buoy_time else None,
-                    'buoy_wind_dir': buoy_wind_dir.strip() if buoy_wind_dir else None,
-                    'buoy_wind_spd': buoy_wind_spd.strip() if buoy_wind_spd else None,
-                    'buoy_air_temp': buoy_air_temp.strip() if buoy_air_temp else None,
-                    'buoy_sst': buoy_sst.strip() if buoy_sst else None,
-                    'buoy_ssc': buoy_ssc.strip() if buoy_ssc else None,
-                    'buoy_rh': buoy_rh.strip() if buoy_rh else None,
+                    # Met Obs fields - will be set as JSON below
+                    'met_ship': None,
+                    'met_buoy': None,
+                    # Description of Visit - stored in rep_comments column
+                    'rep_comments': description_of_visit.strip() if description_of_visit else None,
                     'a2_rep_dep': None,
                     'a2_rep_rec': None,
                     'check_duplicates': None,
                 }
+
+                # Build met_ship JSON object
+                met_ship_data = {}
+                if ship_date:
+                    met_ship_data['date'] = ship_date.strftime('%Y-%m-%dT00:00:00')
+                if ship_time and ship_time.strip():
+                    # Ensure time is in HH:MM:SS format
+                    time_str = ship_time.strip()
+                    if len(time_str) == 5:  # HH:MM format
+                        time_str += ':00'
+                    met_ship_data['time'] = time_str
+                if ship_wind_dir and ship_wind_dir.strip():
+                    met_ship_data['wind_dir'] = parse_float_safe(ship_wind_dir.strip())
+                if ship_wind_spd and ship_wind_spd.strip():
+                    met_ship_data['wind_spd'] = parse_float_safe(ship_wind_spd.strip())
+                if ship_air_temp and ship_air_temp.strip():
+                    met_ship_data['air_temp'] = parse_float_safe(ship_air_temp.strip())
+                if ship_sst and ship_sst.strip():
+                    met_ship_data['sst'] = parse_float_safe(ship_sst.strip())
+                if ship_ssc and ship_ssc.strip():
+                    met_ship_data['ssc'] = parse_float_safe(ship_ssc.strip())
+                if ship_rh and ship_rh.strip():
+                    met_ship_data['rh'] = parse_float_safe(ship_rh.strip())
+
+                # Only set met_ship if there's data
+                if met_ship_data:
+                    repair_data['met_ship'] = json.dumps(met_ship_data)
+
+                # Build met_buoy JSON object
+                met_buoy_data = {}
+                if buoy_date:
+                    met_buoy_data['date'] = buoy_date.strftime('%Y-%m-%dT00:00:00')
+                if buoy_time and buoy_time.strip():
+                    # Ensure time is in HH:MM:SS format
+                    time_str = buoy_time.strip()
+                    if len(time_str) == 5:  # HH:MM format
+                        time_str += ':00'
+                    met_buoy_data['time'] = time_str
+                if buoy_wind_dir and buoy_wind_dir.strip():
+                    met_buoy_data['wind_dir'] = parse_float_safe(buoy_wind_dir.strip())
+                if buoy_wind_spd and buoy_wind_spd.strip():
+                    met_buoy_data['wind_spd'] = parse_float_safe(buoy_wind_spd.strip())
+                if buoy_air_temp and buoy_air_temp.strip():
+                    met_buoy_data['air_temp'] = parse_float_safe(buoy_air_temp.strip())
+                if buoy_sst and buoy_sst.strip():
+                    met_buoy_data['sst'] = parse_float_safe(buoy_sst.strip())
+                if buoy_ssc and buoy_ssc.strip():
+                    met_buoy_data['ssc'] = parse_float_safe(buoy_ssc.strip())
+                if buoy_rh and buoy_rh.strip():
+                    met_buoy_data['rh'] = parse_float_safe(buoy_rh.strip())
+
+                # Only set met_buoy if there's data
+                if met_buoy_data:
+                    repair_data['met_buoy'] = json.dumps(met_buoy_data)
 
                 # Build lost_equipment JSON from Old S/N values with nested structure
                 lost_equipment_dict = {}
