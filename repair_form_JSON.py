@@ -9,279 +9,7 @@ import numpy as np
 # Database configuration
 DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
 
-def check_tube_data():
-    """Diagnostic function to check tube data for specific moorings."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
 
-    # Check RA092B specifically
-    cursor.execute("""
-        SELECT id, mooring_id, lost_equipment, replacement_equipment, equipment_status
-        FROM repair_normalized
-        WHERE mooring_id = 'RA092B'
-    """)
-
-    records = cursor.fetchall()
-    print(f"\n=== Checking RA092B tube data ===")
-    print(f"Found {len(records)} record(s) for RA092B\n")
-
-    for rec in records:
-        print(f"Record ID: {rec['id']}")
-        print(f"Mooring: {rec['mooring_id']}")
-
-        # Parse JSONs
-        if rec['lost_equipment']:
-            lost = json.loads(rec['lost_equipment'])
-            print(f"Lost Equipment: {json.dumps(lost, indent=2)}")
-            if 'tube' in lost:
-                print(f"  ✓ Tube found in lost_equipment: {lost['tube']}")
-            else:
-                print(f"  ✗ Tube NOT in lost_equipment")
-
-        if rec['replacement_equipment']:
-            replacement = json.loads(rec['replacement_equipment'])
-            print(f"Replacement Equipment: {json.dumps(replacement, indent=2)}")
-            if 'tube' in replacement:
-                print(f"  ✓ Tube found in replacement_equipment: {replacement['tube']}")
-            else:
-                print(f"  ✗ Tube NOT in replacement_equipment")
-
-        if rec['equipment_status']:
-            status = json.loads(rec['equipment_status'])
-            print(f"Equipment Status: {json.dumps(status, indent=2)}")
-            if 'tube' in status:
-                print(f"  ✓ Tube found in equipment_status: {status['tube']}")
-            else:
-                print(f"  ✗ Tube NOT in equipment_status")
-
-        print("-" * 50)
-
-    # Now check the Excel file to see what values exist
-    REPAIR_FILE = os.path.expanduser("~/Apps/databases/repair2.xlsx")
-    if os.path.exists(REPAIR_FILE):
-        print(f"\n=== Checking Excel file for RA092B ===")
-        df = pd.read_excel(REPAIR_FILE)
-
-        # Find RA092B rows
-        ra092b_rows = df[df['MooringID'] == 'RA092B']
-
-        if not ra092b_rows.empty:
-            print(f"Found {len(ra092b_rows)} row(s) for RA092B in Excel\n")
-
-            # Check tube-related columns
-            tube_columns = ['Tube SN', 'TubeLost', 'NewTubeSN']
-
-            for idx, row in ra092b_rows.iterrows():
-                print(f"Excel row {idx + 2}:")
-                for col in tube_columns:
-                    if col in df.columns:
-                        value = row[col]
-                        is_nan = pd.isna(value)
-                        print(f"  {col}: {repr(value)} (isna={is_nan})")
-                    else:
-                        print(f"  {col}: COLUMN NOT FOUND")
-                print()
-        else:
-            print("RA092B not found in Excel file")
-
-    conn.close()
-    return
-
-def build_equipment_json_fixed(row, equipment_type='lost'):
-    """
-    Build equipment JSON objects with proper handling of NaN and None values.
-
-    Args:
-        row: DataFrame row containing equipment data
-        equipment_type: 'lost', 'replacement', or 'status'
-
-    Returns:
-        Dictionary containing equipment information
-    """
-    equipment = {}
-
-    if equipment_type == 'lost':
-        # Check each equipment type - include if ANY relevant field has data
-        # Use pd.notna() to properly check for non-NaN values
-
-        # ATRH
-        if pd.notna(row.get('ATRH SN')) or pd.notna(row.get('ATRHlost')):
-            equipment['atrh'] = {
-                'sn': row.get('ATRH SN') if pd.notna(row.get('ATRH SN')) else None,
-                'lost': row.get('ATRHlost') if pd.notna(row.get('ATRHlost')) else None
-            }
-
-        # Rain
-        if pd.notna(row.get('Rain SN')) or pd.notna(row.get('RainLost')):
-            equipment['rain'] = {
-                'sn': row.get('Rain SN') if pd.notna(row.get('Rain SN')) else None,
-                'lost': row.get('RainLost') if pd.notna(row.get('RainLost')) else None
-            }
-
-        # SST
-        if pd.notna(row.get('SST SN')) or pd.notna(row.get('SSTlost')):
-            equipment['sst'] = {
-                'sn': row.get('SST SN') if pd.notna(row.get('SST SN')) else None,
-                'lost': row.get('SSTlost') if pd.notna(row.get('SSTlost')) else None
-            }
-
-        # SW Rad
-        if pd.notna(row.get('SW Rad SN')) or pd.notna(row.get('SWRadLost')):
-            equipment['sw_rad'] = {
-                'sn': row.get('SW Rad SN') if pd.notna(row.get('SW Rad SN')) else None,
-                'lost': row.get('SWRadLost') if pd.notna(row.get('SWRadLost')) else None
-            }
-
-        # Tube - FIXED: properly check for tube data
-        if pd.notna(row.get('Tube SN')) or pd.notna(row.get('TubeLost')):
-            equipment['tube'] = {
-                'sn': row.get('Tube SN') if pd.notna(row.get('Tube SN')) else None,
-                'lost': row.get('TubeLost') if pd.notna(row.get('TubeLost')) else None
-            }
-
-        # Wind
-        if pd.notna(row.get('Wind SN')) or pd.notna(row.get('WindLost')):
-            equipment['wind'] = {
-                'sn': row.get('Wind SN') if pd.notna(row.get('Wind SN')) else None,
-                'lost': row.get('WindLost') if pd.notna(row.get('WindLost')) else None
-            }
-
-    elif equipment_type == 'replacement':
-        # Check each replacement equipment field
-
-        # ATRH
-        if pd.notna(row.get('New ATRH SN')):
-            equipment['atrh'] = {'sn': row.get('New ATRH SN')}
-
-        # PTT
-        if pd.notna(row.get('New PTT Id')):
-            equipment['ptt'] = {'id': row.get('New PTT Id')}
-
-        # Rain
-        if pd.notna(row.get('New Rain SN')):
-            equipment['rain'] = {'sn': row.get('New Rain SN')}
-
-        # SST
-        if pd.notna(row.get('New SST SN')):
-            equipment['sst'] = {'sn': row.get('New SST SN')}
-
-        # SW Rad
-        if pd.notna(row.get('New SW Rad SN')):
-            equipment['sw_rad'] = {'sn': row.get('New SW Rad SN')}
-
-        # Wind
-        if pd.notna(row.get('New WindSN')):
-            equipment['wind'] = {'sn': row.get('New WindSN')}
-
-        # Tube - FIXED: properly check for NewTubeSN
-        if pd.notna(row.get('NewTubeSN')):
-            equipment['tube'] = {'sn': row.get('NewTubeSN')}
-
-    elif equipment_type == 'status':
-        # Equipment status (kept for backward compatibility)
-
-        # PTT
-        if pd.notna(row.get('PTT ID')):
-            equipment['ptt'] = {'id': row.get('PTT ID')}
-
-        # Tube
-        if pd.notna(row.get('Tube SN')) or pd.notna(row.get('TubeLost')):
-            equipment['tube'] = {
-                'sn': row.get('Tube SN') if pd.notna(row.get('Tube SN')) else None,
-                'lost': row.get('TubeLost') if pd.notna(row.get('TubeLost')) else None
-            }
-
-        # Wind
-        if pd.notna(row.get('Wind SN')) or pd.notna(row.get('WindLost')):
-            equipment['wind'] = {
-                'sn': row.get('Wind SN') if pd.notna(row.get('Wind SN')) else None,
-                'lost': row.get('WindLost') if pd.notna(row.get('WindLost')) else None
-            }
-
-    return equipment if equipment else None
-
-
-def test_ra092b_tube_import():
-    """Test function to diagnose why RA092B tube data isn't importing correctly."""
-    print("\n" + "="*60)
-    print("TESTING RA092B TUBE DATA IMPORT ISSUE")
-    print("="*60)
-
-    # First check what's in the database
-    check_tube_data()
-
-    # Now let's test the equipment building logic
-    print("\n=== Testing Equipment Building Logic ===")
-
-    # Simulate a row with tube data
-    test_row = {
-        'Tube SN': '12345',
-        'TubeLost': None,
-        'NewTubeSN': '67890',
-        'ATRH SN': None,
-        'ATRHlost': None,
-        'Rain SN': '1554',
-        'RainLost': None,
-        'SST SN': float('nan'),
-        'SSTlost': None,
-        'SW Rad SN': None,
-        'SWRadLost': None,
-        'Wind SN': float('nan'),
-        'WindLost': None,
-        'New ATRH SN': None,
-        'New PTT Id': None,
-        'New Rain SN': '1554',
-        'New SST SN': float('nan'),
-        'New SW Rad SN': None,
-        'New WindSN': float('nan'),
-        'PTT ID': None
-    }
-
-    # Convert to pandas Series to simulate DataFrame row
-    import pandas as pd
-    test_row_series = pd.Series(test_row)
-
-    print("\nTest row data:")
-    print(f"  Tube SN: {test_row_series.get('Tube SN')} (isna={pd.isna(test_row_series.get('Tube SN'))})")
-    print(f"  NewTubeSN: {test_row_series.get('NewTubeSN')} (isna={pd.isna(test_row_series.get('NewTubeSN'))})")
-
-    # Test with fixed function
-    lost_eq = build_equipment_json_fixed(test_row_series, 'lost')
-    replacement_eq = build_equipment_json_fixed(test_row_series, 'replacement')
-
-    print("\nFixed function results:")
-    print(f"Lost equipment: {json.dumps(lost_eq, indent=2)}")
-    print(f"Replacement equipment: {json.dumps(replacement_eq, indent=2)}")
-
-    # Test with problematic original logic
-    print("\n=== Testing Original Logic (problematic) ===")
-
-    # This simulates the original code's problem
-    lost_equipment_orig = {}
-    replacement_equipment_orig = {}
-
-    # Original lost equipment logic (before fix)
-    if test_row_series['Tube SN'] or test_row_series['TubeLost']:  # Problem: fails if TubeLost is None/NaN
-        lost_equipment_orig['tube'] = {
-            'sn': test_row_series['Tube SN'],
-            'lost': test_row_series['TubeLost']
-        }
-
-    # Original replacement logic
-    if test_row_series['NewTubeSN']:  # Problem: fails for falsy values
-        replacement_equipment_orig['tube'] = {'sn': test_row_series['NewTubeSN']}
-
-    print(f"Original lost equipment: {json.dumps(lost_equipment_orig, indent=2)}")
-    print(f"Original replacement equipment: {json.dumps(replacement_equipment_orig, indent=2)}")
-
-    print("\n" + "="*60)
-    print("DIAGNOSIS:")
-    print("The original code uses 'if row['NewTubeSN']:' which fails when:")
-    print("  1. The value is NaN (evaluates to False)")
-    print("  2. The value is None (evaluates to False)")
-    print("  3. The value is 0 or empty string (evaluates to False)")
-    print("\nThe fix is to use 'pd.notna(row.get('NewTubeSN'))' instead.")
-    print("="*60)
 
 def get_db_connection():
     """Create a database connection."""
@@ -352,6 +80,7 @@ def ensure_columns_exist():
             'wind_old_sn', 'wind_new_sn', 'wind_condition', 'wind_details',
             'rain_old_sn', 'rain_new_sn', 'rain_condition', 'rain_details',
             'swrad_old_sn', 'swrad_new_sn', 'swrad_condition', 'swrad_details',
+            'lwrad_old_sn', 'lwrad_new_sn', 'lwrad_condition', 'lwrad_details',
             'baro_old_sn', 'baro_new_sn', 'baro_condition', 'baro_details',
             'seacat_old_sn', 'seacat_new_sn', 'seacat_condition', 'seacat_details'
         ]
@@ -987,6 +716,10 @@ def main():
         default_swrad_new_sn = ""
         default_swrad_condition = ""
         default_swrad_details = ""
+        default_lwrad_old_sn = ""
+        default_lwrad_new_sn = ""
+        default_lwrad_condition = ""
+        default_lwrad_details = ""
         default_baro_old_sn = ""
         default_baro_new_sn = ""
         default_baro_condition = ""
@@ -1025,6 +758,9 @@ def main():
         default_buoy_ssc = ""
         default_buoy_rh = ""
 
+        # Description of Visit - default empty for new records
+        default_description_of_visit = ""
+
         record_id = None
     else:
         # Use selected record for editing
@@ -1055,26 +791,21 @@ def main():
             default_argos_latitude = str(lat_val) if lat_val and not pd.isna(lat_val) else ''
             default_argos_longitude = str(lon_val) if lon_val and not pd.isna(lon_val) else ''
 
-            # Debug: Print what we're getting from database
-            if default_argos_latitude or default_argos_longitude:
-                print(f"DEBUG: Retrieved lat='{lat_val}' (type: {type(lat_val)}), lon='{lon_val}' (type: {type(lon_val)})")
-                print(f"DEBUG: Using defaults lat='{default_argos_latitude}', lon='{default_argos_longitude}'")
+
 
             # Time fields - extract time portion only
             start_repair = rec.get('start_repair_time', '')
 
-            # Debug: Print what we're getting for times
-            if start_repair:
-                print(f"DEBUG: Retrieved start_repair_time='{start_repair}' (type: {type(start_repair)})")
+
 
             if start_repair and 'T' in str(start_repair):
                 # Format is like "1900-03-13T03:00:00"
                 time_part = str(start_repair).split('T')[1]
                 default_start_repair_time = time_part[:5] if time_part else ''  # Get HH:mm
-                print(f"DEBUG: Extracted start time: '{default_start_repair_time}'")
+
             elif start_repair and ' ' in str(start_repair):
                 default_start_repair_time = str(start_repair).split(' ')[1][:5]  # Get HH:mm
-                print(f"DEBUG: Extracted start time (space separator): '{default_start_repair_time}'")
+
             else:
                 default_start_repair_time = ''
 
@@ -1120,12 +851,18 @@ def main():
             # Parse replacement_equipment JSON for New S/N values
             replacement_equipment = parse_json_field(rec.get('replacement_equipment', '{}'))
 
-            # Debug output for replacement_equipment
-            if rec.get('mooring_id') == 'RA092B':
-                print(f"DEBUG RA092B: replacement_equipment raw = {rec.get('replacement_equipment')}")
-                print(f"DEBUG RA092B: replacement_equipment parsed = {replacement_equipment}")
-                if 'rain' in replacement_equipment:
-                    print(f"DEBUG RA092B: rain data in replacement = {replacement_equipment['rain']}")
+
+
+            # Helper function to clean serial numbers (remove .0 from floats)
+            def clean_serial_number(value):
+                """Remove unnecessary decimal points from serial numbers."""
+                if value is None or value == '':
+                    return ''
+                str_value = str(value).strip()
+                # If it looks like a float with .0, remove the decimal part
+                if str_value.endswith('.0'):
+                    return str_value[:-2]
+                return str_value
 
             # Helper function to get serial number from nested JSON structure
             def get_sensor_sn(data, key):
@@ -1134,7 +871,7 @@ def main():
                     sn_value = sensor_data.get('sn', '')
                     # Handle NaN, null, None as empty string
                     if sn_value and str(sn_value).lower() not in ['nan', 'null', 'none']:
-                        return str(sn_value)
+                        return clean_serial_number(str(sn_value))
                 return ''
 
             # Helper function to get lost/condition status from nested JSON structure
@@ -1144,60 +881,63 @@ def main():
                     lost_value = sensor_data.get('lost', '')
                     # Handle null, None as empty string
                     if lost_value and str(lost_value).lower() not in ['null', 'none']:
-                        return str(lost_value)
+                        return str(lost_value).strip()
                 return ''
 
-            # Sensor Exchange defaults - Old S/N from lost_equipment JSON, New S/N from replacement_equipment JSON
-            default_tube_old_sn = get_sensor_sn(lost_equipment, 'tube')
-            default_tube_new_sn = get_sensor_sn(replacement_equipment, 'tube') or (str(rec.get('tube_new_sn', '')) if rec.get('tube_new_sn') else '')
-            default_tube_condition = get_sensor_condition(lost_equipment, 'tube') or (str(rec.get('tube_condition', '')) if rec.get('tube_condition') else '')
+            # Sensor Exchange defaults - Prioritize individual columns over JSON fields
+            default_tube_old_sn = clean_serial_number(rec.get('tube_old_sn', '')) if rec.get('tube_old_sn') else get_sensor_sn(lost_equipment, 'tube')
+            default_tube_new_sn = clean_serial_number(rec.get('tube_new_sn', '')) if rec.get('tube_new_sn') else get_sensor_sn(replacement_equipment, 'tube')
+            default_tube_condition = str(rec.get('tube_condition', '')) if rec.get('tube_condition') else get_sensor_condition(lost_equipment, 'tube')
             default_tube_details = str(rec.get('tube_details', '')) if rec.get('tube_details') else ''
 
-            default_ptt_old_sn = get_sensor_sn(lost_equipment, 'ptt')
-            default_ptt_new_sn = get_sensor_sn(replacement_equipment, 'ptt') or (str(rec.get('ptt_new_sn', '')) if rec.get('ptt_new_sn') else '')
-            default_ptt_condition = get_sensor_condition(lost_equipment, 'ptt') or (str(rec.get('ptt_condition', '')) if rec.get('ptt_condition') else '')
+
+
+            default_ptt_old_sn = clean_serial_number(rec.get('ptt_old_sn', '')) if rec.get('ptt_old_sn') else get_sensor_sn(lost_equipment, 'ptt')
+            default_ptt_new_sn = clean_serial_number(rec.get('ptt_new_sn', '')) if rec.get('ptt_new_sn') else get_sensor_sn(replacement_equipment, 'ptt')
+            default_ptt_condition = str(rec.get('ptt_condition', '')) if rec.get('ptt_condition') else get_sensor_condition(lost_equipment, 'ptt')
             default_ptt_details = str(rec.get('ptt_details', '')) if rec.get('ptt_details') else ''
 
-            default_atrh_old_sn = get_sensor_sn(lost_equipment, 'atrh')
-            default_atrh_new_sn = get_sensor_sn(replacement_equipment, 'atrh') or (str(rec.get('atrh_new_sn', '')) if rec.get('atrh_new_sn') else '')
-            default_atrh_condition = get_sensor_condition(lost_equipment, 'atrh') or (str(rec.get('atrh_condition', '')) if rec.get('atrh_condition') else '')
+            default_atrh_old_sn = clean_serial_number(rec.get('atrh_old_sn', '')) if rec.get('atrh_old_sn') else get_sensor_sn(lost_equipment, 'atrh')
+            default_atrh_new_sn = clean_serial_number(rec.get('atrh_new_sn', '')) if rec.get('atrh_new_sn') else get_sensor_sn(replacement_equipment, 'atrh')
+            default_atrh_condition = str(rec.get('atrh_condition', '')) if rec.get('atrh_condition') else get_sensor_condition(lost_equipment, 'atrh')
             default_atrh_details = str(rec.get('atrh_details', '')) if rec.get('atrh_details') else ''
 
-            default_sst_old_sn = get_sensor_sn(lost_equipment, 'sst')
-            default_sst_new_sn = get_sensor_sn(replacement_equipment, 'sst') or (str(rec.get('sst_new_sn', '')) if rec.get('sst_new_sn') else '')
-            default_sst_condition = get_sensor_condition(lost_equipment, 'sst') or (str(rec.get('sst_condition', '')) if rec.get('sst_condition') else '')
+            default_sst_old_sn = clean_serial_number(rec.get('sst_old_sn', '')) if rec.get('sst_old_sn') else get_sensor_sn(lost_equipment, 'sst')
+            default_sst_new_sn = clean_serial_number(rec.get('sst_new_sn', '')) if rec.get('sst_new_sn') else get_sensor_sn(replacement_equipment, 'sst')
+            default_sst_condition = str(rec.get('sst_condition', '')) if rec.get('sst_condition') else get_sensor_condition(lost_equipment, 'sst')
             default_sst_details = str(rec.get('sst_details', '')) if rec.get('sst_details') else ''
 
-            default_wind_old_sn = get_sensor_sn(lost_equipment, 'wind')
-            default_wind_new_sn = get_sensor_sn(replacement_equipment, 'wind') or (str(rec.get('wind_new_sn', '')) if rec.get('wind_new_sn') else '')
-            default_wind_condition = get_sensor_condition(lost_equipment, 'wind') or (str(rec.get('wind_condition', '')) if rec.get('wind_condition') else '')
+            default_wind_old_sn = clean_serial_number(rec.get('wind_old_sn', '')) if rec.get('wind_old_sn') else get_sensor_sn(lost_equipment, 'wind')
+            default_wind_new_sn = clean_serial_number(rec.get('wind_new_sn', '')) if rec.get('wind_new_sn') else get_sensor_sn(replacement_equipment, 'wind')
+            default_wind_condition = str(rec.get('wind_condition', '')) if rec.get('wind_condition') else get_sensor_condition(lost_equipment, 'wind')
             default_wind_details = str(rec.get('wind_details', '')) if rec.get('wind_details') else ''
 
-            default_rain_old_sn = get_sensor_sn(lost_equipment, 'rain')
-            default_rain_new_sn = get_sensor_sn(replacement_equipment, 'rain') or (str(rec.get('rain_new_sn', '')) if rec.get('rain_new_sn') else '')
+            default_rain_old_sn = clean_serial_number(rec.get('rain_old_sn', '')) if rec.get('rain_old_sn') else get_sensor_sn(lost_equipment, 'rain')
+            default_rain_new_sn = clean_serial_number(rec.get('rain_new_sn', '')) if rec.get('rain_new_sn') else get_sensor_sn(replacement_equipment, 'rain')
 
-            # Debug for RA092B rain sensor
-            if rec.get('mooring_id') == 'RA092B':
-                print(f"DEBUG RA092B: rain_new_sn from replacement_equipment = {get_sensor_sn(replacement_equipment, 'rain')}")
-                print(f"DEBUG RA092B: rain_new_sn from column = {rec.get('rain_new_sn')}")
-                print(f"DEBUG RA092B: default_rain_new_sn final value = {default_rain_new_sn}")
 
-            default_rain_condition = get_sensor_condition(lost_equipment, 'rain') or (str(rec.get('rain_condition', '')) if rec.get('rain_condition') else '')
+
+            default_rain_condition = str(rec.get('rain_condition', '')) if rec.get('rain_condition') else get_sensor_condition(lost_equipment, 'rain')
             default_rain_details = str(rec.get('rain_details', '')) if rec.get('rain_details') else ''
 
-            default_swrad_old_sn = get_sensor_sn(lost_equipment, 'swrad') or get_sensor_sn(lost_equipment, 'sw_rad')
-            default_swrad_new_sn = get_sensor_sn(replacement_equipment, 'swrad') or get_sensor_sn(replacement_equipment, 'sw_rad') or (str(rec.get('swrad_new_sn', '')) if rec.get('swrad_new_sn') else '')
-            default_swrad_condition = get_sensor_condition(lost_equipment, 'swrad') or get_sensor_condition(lost_equipment, 'sw_rad') or (str(rec.get('swrad_condition', '')) if rec.get('swrad_condition') else '')
+            default_swrad_old_sn = clean_serial_number(rec.get('swrad_old_sn', '')) if rec.get('swrad_old_sn') else (get_sensor_sn(lost_equipment, 'swrad') or get_sensor_sn(lost_equipment, 'sw_rad'))
+            default_swrad_new_sn = clean_serial_number(rec.get('swrad_new_sn', '')) if rec.get('swrad_new_sn') else (get_sensor_sn(replacement_equipment, 'swrad') or get_sensor_sn(replacement_equipment, 'sw_rad'))
+            default_swrad_condition = str(rec.get('swrad_condition', '')) if rec.get('swrad_condition') else (get_sensor_condition(lost_equipment, 'swrad') or get_sensor_condition(lost_equipment, 'sw_rad'))
             default_swrad_details = str(rec.get('swrad_details', '')) if rec.get('swrad_details') else ''
 
-            default_baro_old_sn = get_sensor_sn(lost_equipment, 'baro') or get_sensor_sn(lost_equipment, 'baro_press')
-            default_baro_new_sn = get_sensor_sn(replacement_equipment, 'baro') or get_sensor_sn(replacement_equipment, 'baro_press') or (str(rec.get('baro_new_sn', '')) if rec.get('baro_new_sn') else '')
-            default_baro_condition = get_sensor_condition(lost_equipment, 'baro') or get_sensor_condition(lost_equipment, 'baro_press') or (str(rec.get('baro_condition', '')) if rec.get('baro_condition') else '')
+            default_lwrad_old_sn = clean_serial_number(rec.get('lwrad_old_sn', '')) if rec.get('lwrad_old_sn') else (get_sensor_sn(lost_equipment, 'lwrad') or get_sensor_sn(lost_equipment, 'lw_rad') or get_sensor_sn(lost_equipment, 'lwr_rad'))
+            default_lwrad_new_sn = clean_serial_number(rec.get('lwrad_new_sn', '')) if rec.get('lwrad_new_sn') else (get_sensor_sn(replacement_equipment, 'lwrad') or get_sensor_sn(replacement_equipment, 'lw_rad') or get_sensor_sn(replacement_equipment, 'lwr_rad'))
+            default_lwrad_condition = str(rec.get('lwrad_condition', '')) if rec.get('lwrad_condition') else (get_sensor_condition(lost_equipment, 'lwrad') or get_sensor_condition(lost_equipment, 'lw_rad') or get_sensor_condition(lost_equipment, 'lwr_rad'))
+            default_lwrad_details = str(rec.get('lwrad_details', '')) if rec.get('lwrad_details') else ''
+
+            default_baro_old_sn = clean_serial_number(rec.get('baro_old_sn', '')) if rec.get('baro_old_sn') else (get_sensor_sn(lost_equipment, 'baro') or get_sensor_sn(replacement_equipment, 'baro_press'))
+            default_baro_new_sn = clean_serial_number(rec.get('baro_new_sn', '')) if rec.get('baro_new_sn') else (get_sensor_sn(replacement_equipment, 'baro') or get_sensor_sn(replacement_equipment, 'baro_press'))
+            default_baro_condition = str(rec.get('baro_condition', '')) if rec.get('baro_condition') else (get_sensor_condition(lost_equipment, 'baro') or get_sensor_condition(lost_equipment, 'baro_press'))
             default_baro_details = str(rec.get('baro_details', '')) if rec.get('baro_details') else ''
 
-            default_seacat_old_sn = get_sensor_sn(lost_equipment, 'seacat')
-            default_seacat_new_sn = get_sensor_sn(replacement_equipment, 'seacat') or (str(rec.get('seacat_new_sn', '')) if rec.get('seacat_new_sn') else '')
-            default_seacat_condition = get_sensor_condition(lost_equipment, 'seacat') or (str(rec.get('seacat_condition', '')) if rec.get('seacat_condition') else '')
+            default_seacat_old_sn = clean_serial_number(rec.get('seacat_old_sn', '')) if rec.get('seacat_old_sn') else get_sensor_sn(lost_equipment, 'seacat')
+            default_seacat_new_sn = clean_serial_number(rec.get('seacat_new_sn', '')) if rec.get('seacat_new_sn') else get_sensor_sn(replacement_equipment, 'seacat')
+            default_seacat_condition = str(rec.get('seacat_condition', '')) if rec.get('seacat_condition') else get_sensor_condition(lost_equipment, 'seacat')
             default_seacat_details = str(rec.get('seacat_details', '')) if rec.get('seacat_details') else ''
 
             # Tube Exchange defaults
@@ -1212,8 +952,8 @@ def main():
             # Parse met_ship JSON
             default_met_ship = parse_json_field(rec.get('met_ship', '{}'))
             if default_met_ship:
-                # Handle ship_date
-                ship_date_str = default_met_ship.get('date', '')
+                # Handle ship_date - JSON uses "Date" with capital D
+                ship_date_str = default_met_ship.get('Date', '')
                 if ship_date_str and ship_date_str not in ['', 'None', 'null']:
                     try:
                         default_ship_date = datetime.strptime(str(ship_date_str).split('T')[0], '%Y-%m-%d').date()
@@ -1222,15 +962,15 @@ def main():
                 else:
                     default_ship_date = None
 
-                default_ship_time = str(default_met_ship.get('time', ''))[:5] if default_met_ship.get('time') else ''  # Format as HH:MM
-                default_ship_wind_dir = str(default_met_ship.get('wind_dir', '')) if default_met_ship.get('wind_dir') is not None else ''
-                default_ship_wind_spd = str(default_met_ship.get('wind_spd', '')) if default_met_ship.get('wind_spd') is not None else ''
-                default_ship_air_temp = str(default_met_ship.get('air_temp', '')) if default_met_ship.get('air_temp') is not None else ''
-                default_ship_sst = str(default_met_ship.get('sst', '')) if default_met_ship.get('sst') is not None else ''
+                default_ship_time = str(default_met_ship.get('Time', ''))[:5] if default_met_ship.get('Time') else ''  # Format as HH:MM
+                default_ship_wind_dir = str(default_met_ship.get('Wind Dir', '')) if default_met_ship.get('Wind Dir') is not None else ''
+                default_ship_wind_spd = str(default_met_ship.get('Wind Spd', '')) if default_met_ship.get('Wind Spd') is not None else ''
+                default_ship_air_temp = str(default_met_ship.get('Air Temp', '')) if default_met_ship.get('Air Temp') is not None else ''
+                default_ship_sst = str(default_met_ship.get('SST', '')) if default_met_ship.get('SST') is not None else ''
                 # Handle both uppercase 'SSC' and lowercase 'ssc'
                 ssc_value = default_met_ship.get('SSC') if 'SSC' in default_met_ship else default_met_ship.get('ssc')
                 default_ship_ssc = str(ssc_value) if ssc_value not in [None, ''] else ''
-                default_ship_rh = str(default_met_ship.get('rh', '')) if default_met_ship.get('rh') is not None else ''
+                default_ship_rh = str(default_met_ship.get('RH', '')) if default_met_ship.get('RH') is not None else ''
             else:
                 default_ship_date = None
                 default_ship_time = ""
@@ -1244,8 +984,8 @@ def main():
             # Parse met_buoy JSON
             default_met_buoy = parse_json_field(rec.get('met_buoy', '{}'))
             if default_met_buoy:
-                # Handle buoy_date
-                buoy_date_str = default_met_buoy.get('date', '')
+                # Handle buoy_date - JSON uses "Date" with capital D
+                buoy_date_str = default_met_buoy.get('Date', '')
                 if buoy_date_str and buoy_date_str not in ['', 'None', 'null']:
                     try:
                         default_buoy_date = datetime.strptime(str(buoy_date_str).split('T')[0], '%Y-%m-%d').date()
@@ -1254,15 +994,15 @@ def main():
                 else:
                     default_buoy_date = None
 
-                default_buoy_time = str(default_met_buoy.get('time', ''))[:5] if default_met_buoy.get('time') else ''  # Format as HH:MM
-                default_buoy_wind_dir = str(default_met_buoy.get('wind_dir', '')) if default_met_buoy.get('wind_dir') is not None else ''
-                default_buoy_wind_spd = str(default_met_buoy.get('wind_spd', '')) if default_met_buoy.get('wind_spd') is not None else ''
-                default_buoy_air_temp = str(default_met_buoy.get('air_temp', '')) if default_met_buoy.get('air_temp') is not None else ''
-                default_buoy_sst = str(default_met_buoy.get('sst', '')) if default_met_buoy.get('sst') is not None else ''
+                default_buoy_time = str(default_met_buoy.get('Time', ''))[:5] if default_met_buoy.get('Time') else ''  # Format as HH:MM
+                default_buoy_wind_dir = str(default_met_buoy.get('Wind Dir', '')) if default_met_buoy.get('Wind Dir') is not None else ''
+                default_buoy_wind_spd = str(default_met_buoy.get('Wind Spd', '')) if default_met_buoy.get('Wind Spd') is not None else ''
+                default_buoy_air_temp = str(default_met_buoy.get('Air Temp', '')) if default_met_buoy.get('Air Temp') is not None else ''
+                default_buoy_sst = str(default_met_buoy.get('SST', '')) if default_met_buoy.get('SST') is not None else ''
                 # Handle both uppercase 'SSC' and lowercase 'ssc'
                 ssc_value = default_met_buoy.get('SSC') if 'SSC' in default_met_buoy else default_met_buoy.get('ssc')
                 default_buoy_ssc = str(ssc_value) if ssc_value not in [None, ''] else ''
-                default_buoy_rh = str(default_met_buoy.get('rh', '')) if default_met_buoy.get('rh') is not None else ''
+                default_buoy_rh = str(default_met_buoy.get('RH', '')) if default_met_buoy.get('RH') is not None else ''
             else:
                 default_buoy_date = None
                 default_buoy_time = ""
@@ -1370,62 +1110,7 @@ def main():
 
             record_id = None
 
-    # Debug section to show available columns
-    with st.expander("🔧 Debug: Database Columns", expanded=False):
-        if st.session_state.selected_repair:
-            st.write("**Available columns in repair_normalized table:**")
 
-            # Show the default values being used
-            st.write("**Default values for form fields:**")
-            debug_defaults = {
-                'site': default_site,
-                'mooring_id': default_mooring_id,
-                'cruise': default_cruise,
-                'personnel': default_personnel,
-                'argos_latitude': default_argos_latitude,
-                'argos_longitude': default_argos_longitude,
-                'start_repair_time': default_start_repair_time,
-                'end_repair_time': default_end_repair_time,
-                'swap_time': default_swap_time,
-                'repair_date': str(default_repair_date) if default_repair_date else 'None'
-            }
-            st.json(debug_defaults)
-
-            # Get all columns and values
-            debug_data = []
-            for key, value in st.session_state.selected_repair.items():
-                # Parse JSON fields for better display
-                if key in ['lost_equipment', 'replacement_equipment', 'equipment_status']:
-                    try:
-                        if value and value != 'null' and value != '{}':
-                            parsed = json.loads(value) if isinstance(value, str) else value
-                            debug_data.append({
-                                'Column': key,
-                                'Value': json.dumps(parsed, indent=2) if parsed else 'Empty JSON'
-                            })
-                        else:
-                            debug_data.append({'Column': key, 'Value': 'Empty JSON'})
-                    except:
-                        debug_data.append({'Column': key, 'Value': str(value)})
-                else:
-                    debug_data.append({'Column': key, 'Value': str(value) if value is not None else 'NULL'})
-
-            # Display as DataFrame
-            debug_df = pd.DataFrame(debug_data)
-            st.dataframe(debug_df, use_container_width=True, height=400)
-
-            # Show raw record as JSON
-            if st.checkbox("Show raw record as JSON"):
-                st.json(st.session_state.selected_repair)
-        else:
-            # Just show available columns from database
-            table_exists, columns = check_database_table()
-            if columns:
-                st.write("**Columns in repair_normalized table:**")
-                for i, col in enumerate(columns, 1):
-                    st.write(f"{i}. {col}")
-            else:
-                st.warning("Could not retrieve column information")
 
     # Show the form in both modes
     if mode == "Add New" or mode == "Search/Edit":
@@ -1435,27 +1120,32 @@ def main():
         # Form sections
         with st.form("repair_form"):
 
-            # Basic Information Section
-            st.markdown("### Basic Information")
-
             # Row 1: Site and Mooring ID
             col1, col2 = st.columns(2)
             with col1:
-                site_options = [""] + available_sites + ["Other (specify below)"]
-                if default_site in site_options:
-                    site_index = site_options.index(default_site)
-                elif default_site and default_site not in site_options:
-                    site_options.insert(1, default_site)
-                    site_index = 1
+                if mode == "Add New":
+                    # In Add New mode, use text input with autocomplete suggestions
+                    site = st.text_input("Site", value=default_site, key="site",
+                                       help="Enter site name (you can type a new site or select from existing)")
+                    if available_sites:
+                        st.caption(f"Existing sites: {', '.join(available_sites[:5])}{'...' if len(available_sites) > 5 else ''}")
                 else:
-                    site_index = 0
+                    # In Search/Edit mode, use dropdown with existing sites
+                    site_options = [""] + available_sites + ["Other (specify below)"]
+                    if default_site in site_options:
+                        site_index = site_options.index(default_site)
+                    elif default_site and default_site not in site_options:
+                        site_options.insert(1, default_site)
+                        site_index = 1
+                    else:
+                        site_index = 0
 
-                site_selection = st.selectbox("Site", options=site_options, index=site_index, key="site_dropdown")
+                    site_selection = st.selectbox("Site", options=site_options, index=site_index, key="site_dropdown")
 
-                if site_selection == "Other (specify below)":
-                    site = st.text_input("Specify site", value="", key="site_custom")
-                else:
-                    site = site_selection
+                    if site_selection == "Other (specify below)":
+                        site = st.text_input("Specify site", value="", key="site_custom")
+                    else:
+                        site = site_selection
 
             with col2:
                 mooring_id = st.text_input("Mooring ID", value=default_mooring_id, key="mooring_id")
@@ -1463,21 +1153,29 @@ def main():
             # Row 2: Cruise and Repair Date
             col3, col4 = st.columns(2)
             with col3:
-                cruise_options = [""] + available_cruises + ["Other (specify below)"]
-                if default_cruise in cruise_options:
-                    cruise_index = cruise_options.index(default_cruise)
-                elif default_cruise and default_cruise not in cruise_options:
-                    cruise_options.insert(1, default_cruise)
-                    cruise_index = 1
+                if mode == "Add New":
+                    # In Add New mode, use text input with autocomplete suggestions
+                    cruise = st.text_input("Cruise", value=default_cruise, key="cruise",
+                                         help="Enter cruise name (you can type a new cruise or select from existing)")
+                    if available_cruises:
+                        st.caption(f"Existing cruises: {', '.join(available_cruises[:5])}{'...' if len(available_cruises) > 5 else ''}")
                 else:
-                    cruise_index = 0
+                    # In Search/Edit mode, use dropdown with existing cruises
+                    cruise_options = [""] + available_cruises + ["Other (specify below)"]
+                    if default_cruise in cruise_options:
+                        cruise_index = cruise_options.index(default_cruise)
+                    elif default_cruise and default_cruise not in cruise_options:
+                        cruise_options.insert(1, default_cruise)
+                        cruise_index = 1
+                    else:
+                        cruise_index = 0
 
-                cruise_selection = st.selectbox("Cruise", options=cruise_options, index=cruise_index, key="cruise_dropdown")
+                    cruise_selection = st.selectbox("Cruise", options=cruise_options, index=cruise_index, key="cruise_dropdown")
 
-                if cruise_selection == "Other (specify below)":
-                    cruise = st.text_input("Specify cruise", value="", key="cruise_custom")
-                else:
-                    cruise = cruise_selection
+                    if cruise_selection == "Other (specify below)":
+                        cruise = st.text_input("Specify cruise", value="", key="cruise_custom")
+                    else:
+                        cruise = cruise_selection
 
             with col4:
                 repair_date = st.date_input("Repair Date", value=default_repair_date, key="repair_date", format="YYYY-MM-DD")
@@ -1663,6 +1361,19 @@ def main():
             with col_details:
                 swrad_details = st.text_input("SW Rad Details", value=default_swrad_details, key="swrad_details", label_visibility="collapsed")
 
+            # LWR Rad row
+            col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
+            with col_label:
+                st.markdown("LWR Rad")
+            with col_old:
+                lwrad_old_sn = st.text_input("LWR Rad Old S/N", value=default_lwrad_old_sn, key="lwrad_old_sn", label_visibility="collapsed")
+            with col_new:
+                lwrad_new_sn = st.text_input("LWR Rad New S/N", value=default_lwrad_new_sn, key="lwrad_new_sn", label_visibility="collapsed")
+            with col_condition:
+                lwrad_condition = st.selectbox("LWR Rad Condition", options=condition_options, index=condition_options.index(default_lwrad_condition) if default_lwrad_condition in condition_options else 0, key="lwrad_condition", label_visibility="collapsed")
+            with col_details:
+                lwrad_details = st.text_input("LWR Rad Details", value=default_lwrad_details, key="lwrad_details", label_visibility="collapsed")
+
             # Baro Press row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
@@ -1720,17 +1431,17 @@ def main():
             with col1:
                 st.markdown("Bat Logic")
                 bat_logic = st.text_input("Bat Logic", value=default_bat_logic, key="bat_logic",
-                                              placeholder="Serial number", help="Battery logic serial number",
+                                              placeholder="Volts", help="Battery logic serial number",
                                               label_visibility="collapsed")
             with col2:
                 st.markdown("Bat Transmit")
                 bat_transmit = st.text_input("Bat Transmit", value=default_bat_transmit, key="bat_transmit",
-                                                 placeholder="e.g., 90s", help="Battery transmit interval",
+                                                 placeholder="Volts", help="Battery transmit interval",
                                                  label_visibility="collapsed")
             with col3:
                 st.markdown("Data Filename")
                 file_name = st.text_input("Filename", value=default_file_name, key="file_name",
-                                                 placeholder="e.g., TUBE_001.DAT", help="Downloaded data filename",
+                                                 placeholder="e.g., TUBE_001.BIN", help="Downloaded data filename",
                                                  label_visibility="collapsed")
 
             st.markdown("---")
@@ -1841,8 +1552,8 @@ def main():
                     'actual_longitude': actual_longitude.strip() if actual_longitude else None,
                     'depth': depth.strip() if depth else None,
                     'ctd_number': ctd_number.strip() if ctd_number else None,
-                    'buoy_condition': buoy_condition.strip() if buoy_condition else None,
-                    'fishing_vandalism': fishing_vandalism.strip() if fishing_vandalism else None,
+                    'buoy_details': buoy_condition.strip() if buoy_condition else None,
+                    'repair_fishing_vandalism': fishing_vandalism.strip() if fishing_vandalism else None,
                     # Sensor Exchange fields
                     'tube_old_sn': tube_old_sn.strip() if tube_old_sn else None,
                     'tube_new_sn': tube_new_sn.strip() if tube_new_sn else None,
@@ -1872,6 +1583,10 @@ def main():
                     'swrad_new_sn': swrad_new_sn.strip() if swrad_new_sn else None,
                     'swrad_condition': swrad_condition.strip() if swrad_condition else None,
                     'swrad_details': swrad_details.strip() if swrad_details else None,
+                    'lwrad_old_sn': lwrad_old_sn.strip() if lwrad_old_sn else None,
+                    'lwrad_new_sn': lwrad_new_sn.strip() if lwrad_new_sn else None,
+                    'lwrad_condition': lwrad_condition.strip() if lwrad_condition else None,
+                    'lwrad_details': lwrad_details.strip() if lwrad_details else None,
                     'baro_old_sn': baro_old_sn.strip() if baro_old_sn else None,
                     'baro_new_sn': baro_new_sn.strip() if baro_new_sn else None,
                     'baro_condition': baro_condition.strip() if baro_condition else None,
@@ -1897,55 +1612,55 @@ def main():
                     'check_duplicates': None,
                 }
 
-                # Build met_ship JSON object
+                # Build met_ship JSON object - use proper capitalized keys to match existing data
                 met_ship_data = {}
                 if ship_date:
-                    met_ship_data['date'] = ship_date.strftime('%Y-%m-%dT00:00:00')
+                    met_ship_data['Date'] = ship_date.strftime('%Y-%m-%dT00:00:00')
                 if ship_time and ship_time.strip():
                     # Ensure time is in HH:MM:SS format
                     time_str = ship_time.strip()
                     if len(time_str) == 5:  # HH:MM format
                         time_str += ':00'
-                    met_ship_data['time'] = time_str
+                    met_ship_data['Time'] = time_str
                 if ship_wind_dir and ship_wind_dir.strip():
-                    met_ship_data['wind_dir'] = parse_float_safe(ship_wind_dir.strip())
+                    met_ship_data['Wind Dir'] = parse_float_safe(ship_wind_dir.strip())
                 if ship_wind_spd and ship_wind_spd.strip():
-                    met_ship_data['wind_spd'] = parse_float_safe(ship_wind_spd.strip())
+                    met_ship_data['Wind Spd'] = parse_float_safe(ship_wind_spd.strip())
                 if ship_air_temp and ship_air_temp.strip():
-                    met_ship_data['air_temp'] = parse_float_safe(ship_air_temp.strip())
+                    met_ship_data['Air Temp'] = parse_float_safe(ship_air_temp.strip())
                 if ship_sst and ship_sst.strip():
-                    met_ship_data['sst'] = parse_float_safe(ship_sst.strip())
+                    met_ship_data['SST'] = parse_float_safe(ship_sst.strip())
                 if ship_ssc and ship_ssc.strip():
-                    met_ship_data['ssc'] = parse_float_safe(ship_ssc.strip())
+                    met_ship_data['SSC'] = parse_float_safe(ship_ssc.strip())
                 if ship_rh and ship_rh.strip():
-                    met_ship_data['rh'] = parse_float_safe(ship_rh.strip())
+                    met_ship_data['RH'] = parse_float_safe(ship_rh.strip())
 
                 # Only set met_ship if there's data
                 if met_ship_data:
                     repair_data['met_ship'] = json.dumps(met_ship_data)
 
-                # Build met_buoy JSON object
+                # Build met_buoy JSON object - use proper capitalized keys to match existing data
                 met_buoy_data = {}
                 if buoy_date:
-                    met_buoy_data['date'] = buoy_date.strftime('%Y-%m-%dT00:00:00')
+                    met_buoy_data['Date'] = buoy_date.strftime('%Y-%m-%dT00:00:00')
                 if buoy_time and buoy_time.strip():
                     # Ensure time is in HH:MM:SS format
                     time_str = buoy_time.strip()
                     if len(time_str) == 5:  # HH:MM format
                         time_str += ':00'
-                    met_buoy_data['time'] = time_str
+                    met_buoy_data['Time'] = time_str
                 if buoy_wind_dir and buoy_wind_dir.strip():
-                    met_buoy_data['wind_dir'] = parse_float_safe(buoy_wind_dir.strip())
+                    met_buoy_data['Wind Dir'] = parse_float_safe(buoy_wind_dir.strip())
                 if buoy_wind_spd and buoy_wind_spd.strip():
-                    met_buoy_data['wind_spd'] = parse_float_safe(buoy_wind_spd.strip())
+                    met_buoy_data['Wind Spd'] = parse_float_safe(buoy_wind_spd.strip())
                 if buoy_air_temp and buoy_air_temp.strip():
-                    met_buoy_data['air_temp'] = parse_float_safe(buoy_air_temp.strip())
+                    met_buoy_data['Air Temp'] = parse_float_safe(buoy_air_temp.strip())
                 if buoy_sst and buoy_sst.strip():
-                    met_buoy_data['sst'] = parse_float_safe(buoy_sst.strip())
+                    met_buoy_data['SST'] = parse_float_safe(buoy_sst.strip())
                 if buoy_ssc and buoy_ssc.strip():
-                    met_buoy_data['ssc'] = parse_float_safe(buoy_ssc.strip())
+                    met_buoy_data['SSC'] = parse_float_safe(buoy_ssc.strip())
                 if buoy_rh and buoy_rh.strip():
-                    met_buoy_data['rh'] = parse_float_safe(buoy_rh.strip())
+                    met_buoy_data['RH'] = parse_float_safe(buoy_rh.strip())
 
                 # Only set met_buoy if there's data
                 if met_buoy_data:
@@ -1967,6 +1682,8 @@ def main():
                     lost_equipment_dict['rain'] = {'sn': rain_old_sn.strip(), 'lost': rain_condition.strip() if rain_condition else None}
                 if swrad_old_sn and swrad_old_sn.strip():
                     lost_equipment_dict['swrad'] = {'sn': swrad_old_sn.strip(), 'lost': swrad_condition.strip() if swrad_condition else None}
+                if lwrad_old_sn and lwrad_old_sn.strip():
+                    lost_equipment_dict['lwrad'] = {'sn': lwrad_old_sn.strip(), 'lost': lwrad_condition.strip() if lwrad_condition else None}
                 if baro_old_sn and baro_old_sn.strip():
                     lost_equipment_dict['baro'] = {'sn': baro_old_sn.strip(), 'lost': baro_condition.strip() if baro_condition else None}
                 if seacat_old_sn and seacat_old_sn.strip():
@@ -1988,6 +1705,8 @@ def main():
                     replacement_equipment_dict['rain'] = {'sn': rain_new_sn.strip()}
                 if swrad_new_sn and swrad_new_sn.strip():
                     replacement_equipment_dict['swrad'] = {'sn': swrad_new_sn.strip()}
+                if lwrad_new_sn and lwrad_new_sn.strip():
+                    replacement_equipment_dict['lwrad'] = {'sn': lwrad_new_sn.strip()}
                 if baro_new_sn and baro_new_sn.strip():
                     replacement_equipment_dict['baro'] = {'sn': baro_new_sn.strip()}
                 if seacat_new_sn and seacat_new_sn.strip():
