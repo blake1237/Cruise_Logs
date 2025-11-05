@@ -681,8 +681,8 @@ def update_deployment_data(deployment_id, form_data):
             form_data.get('site', ''),
             form_data.get('mooringid', ''),
             form_data.get('cruise', ''),
-            form_data.get('anchor_drp_lat', ''),
-            form_data.get('anchor_drp_long', ''),
+            form_data.get('anchor_drp_lat', ''),  # Now buoy latitude from flyby
+            form_data.get('anchor_drp_long', ''),  # Now buoy longitude from flyby
             form_data.get('depth', ''),
             json.dumps(deployment_info),
             json.dumps(met_sensors),
@@ -891,8 +891,8 @@ def save_deployment_data(form_data):
             form_data.get('site', ''),
             form_data.get('mooringid', ''),
             form_data.get('cruise', ''),
-            form_data.get('anchor_drp_lat', ''),
-            form_data.get('anchor_drp_long', ''),
+            form_data.get('anchor_drp_lat', ''),  # Now buoy latitude from flyby
+            form_data.get('anchor_drp_long', ''),  # Now buoy longitude from flyby
             form_data.get('depth', ''),
             json.dumps(deployment_info),
             json.dumps(met_sensors),
@@ -1549,8 +1549,9 @@ def main():
         default_mooringid = record.get('mooringid', '')
         default_cruise = record.get('cruise', '')
         default_personnel = deployment_info.get('personnel', '')
-        default_lat = record.get('latitude', '')
-        default_long = record.get('longitude', '')
+        # Use buoy coordinates from flyby instead of anchor_drop
+        default_lat = flyby.get('buoy_latitude', '')
+        default_long = flyby.get('buoy_longitude', '')
         default_depth = record.get('depth', '')
         default_mooring_type = deployment_info.get('mooring_type', '')
 
@@ -1911,22 +1912,27 @@ def main():
         personnel = st.text_area("Personnel", value=default_personnel, height=100, key="personnel",
                                help="Enter the names of personnel involved in the deployment")
 
-        # Fourth row: Latitude and Longitude
+        # Fourth row: Buoy Latitude and Longitude (from flyby)
         col5, col6 = st.columns(2)
         with col5:
-            anchor_drp_lat = st.text_input("Latitude", value=default_lat, key="anchor_drp_lat",
-                                         help="Enter latitude in decimal degrees (e.g., 37.7749) or degrees decimal minutes (e.g., 37 46.5 N)")
+            anchor_drp_lat = st.text_input("Buoy Latitude", value=default_lat, key="anchor_drp_lat",
+                                         help="Buoy position from flyby - Enter latitude in decimal degrees (e.g., 37.7749) or degrees decimal minutes (e.g., 37 46.5 N)")
         with col6:
-            anchor_drp_long = st.text_input("Longitude", value=default_long, key="anchor_drp_long",
-                                          help="Enter longitude in decimal degrees (e.g., -122.4194) or degrees decimal minutes (e.g., 122 25.3 W)")
+            anchor_drp_long = st.text_input("Buoy Longitude", value=default_long, key="anchor_drp_long",
+                                          help="Buoy position from flyby - Enter longitude in decimal degrees (e.g., -122.4194) or degrees decimal minutes (e.g., 122 25.3 W)")
 
         # Fifth row: Mooring Type and Depth
         col7, col8 = st.columns(2)
         with col7:
-            mooring_options = ["", "taught", "slack"]
+            mooring_options = ["", "taut", "slack"]
+            # Handle case-insensitive matching for mooring type
             try:
-                mooring_index = mooring_options.index(default_mooring_type)
-            except ValueError:
+                # Convert default to lowercase for comparison
+                default_mooring_lower = default_mooring_type.lower()
+                # Find matching index (case-insensitive)
+                mooring_index = next((i for i, opt in enumerate(mooring_options)
+                                     if opt.lower() == default_mooring_lower), 0)
+            except (ValueError, AttributeError):
                 mooring_index = 0
             mooring_type = st.selectbox("Mooring Type", options=mooring_options, index=mooring_index, key="mooring_type")
         with col8:
@@ -2660,8 +2666,8 @@ def main():
                 'mooringid': mooringid,
                 'cruise': cruise,
                 'personnel': personnel,
-                'anchor_drp_lat': anchor_drp_lat,
-                'anchor_drp_long': anchor_drp_long,
+                'anchor_drp_lat': anchor_drp_lat,  # Buoy latitude from flyby
+                'anchor_drp_long': anchor_drp_long,  # Buoy longitude from flyby
                 'mooring_type': mooring_type,
                 'depth': depth,
                 'atrh_type': atrh_type,
