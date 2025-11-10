@@ -2,7 +2,8 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import json
-from datetime import datetime, date, time
+import datetime
+from datetime import date
 import os
 
 # Database configuration
@@ -922,8 +923,6 @@ def save_deployment_data(form_data):
 
 def main():
     """Main Streamlit application function."""
-    # Import datetime components at function level to ensure availability
-    from datetime import datetime, date, time
 
     # Page configuration
     st.set_page_config(
@@ -1172,10 +1171,28 @@ def main():
 
             with tab1:
                 lookup_sn = st.text_input("Enter Spool S/N:", key="sidebar_lookup_sn")
-                lookup_button = st.button("Look Up", key="sidebar_lookup_button")
+                lookup_button = st.button("Look Up", key="sidebar_lookup_button", use_container_width=True)
+
+                if 'quick_lookup_result' in st.session_state and st.session_state.quick_lookup_result:
+                    clear_button = st.button("Clear Results", key="clear_quick_lookup", use_container_width=True)
+                    if clear_button:
+                        del st.session_state.quick_lookup_result
+                        st.rerun()
 
                 if lookup_button and lookup_sn:
                     spool_info = get_spool_info(lookup_sn)
+                    if spool_info:
+                        # Store in session state
+                        st.session_state.quick_lookup_result = {'sn': lookup_sn, 'info': spool_info}
+                    else:
+                        st.session_state.quick_lookup_result = {'sn': lookup_sn, 'info': None}
+
+                # Display from session state
+                if 'quick_lookup_result' in st.session_state and st.session_state.quick_lookup_result:
+                    lookup_data = st.session_state.quick_lookup_result
+                    spool_info = lookup_data['info']
+                    lookup_sn = lookup_data['sn']
+
                     if spool_info:
                         st.success(f"✅ Found: {spool_info['serial']}")
                         st.write(f"**Length:** {spool_info['length']}m")
@@ -1208,13 +1225,8 @@ def main():
                             col1, col2 = st.columns(2)
                             with col1:
                                 st.metric("Deployments", len(deployments))
-                                st.metric("Depth Range", f"{min(depths):.0f}-{max(depths):.0f}m")
                             with col2:
                                 st.metric("Avg Depth", f"{sum(depths)/len(depths):.0f}m")
-                                # Count deployments by depth range
-                                shallow = len([d for d in depths if d < 1000])
-                                deep = len([d for d in depths if d >= 1000])
-                                st.metric("Shallow/Deep", f"{shallow}/{deep}")
                         else:
                             st.info(f"Found {len(deployments)} deployment(s) - no depth data")
 
@@ -1252,7 +1264,16 @@ def main():
                 search_year = st.text_input("Year:", key="sidebar_search_year")
                 search_ev50 = st.text_input("EV50:", key="sidebar_search_ev50")
 
-                if st.button("Search", key="sidebar_advanced_search"):
+                # Simple sequential buttons
+                search_button = st.button("Search Spools", key="sidebar_advanced_search", use_container_width=True)
+
+                if 'spool_search_results' in st.session_state and st.session_state.spool_search_results:
+                    clear_button = st.button("Clear Results", key="clear_spool_search", use_container_width=True)
+                    if clear_button:
+                        del st.session_state.spool_search_results
+                        st.rerun()
+
+                if search_button:
                     results = search_spools_advanced(
                         serial_pattern=search_serial if search_serial else None,
                         min_length=min_length if min_length > 0 else None,
@@ -1263,30 +1284,35 @@ def main():
                         ev50=search_ev50 if search_ev50 else None
                     )
 
-                    if results:
-                        st.success(f"Found {len(results)} spool(s)")
+                    # Store results in session state
+                    st.session_state.spool_search_results = results
 
-                        # Show compact results in sidebar
-                        for spool in results[:10]:  # Limit to 10 results
-                            st.write(f"**{spool['serial']}** - {spool['length']}m")
-                            if spool['ev50']:
-                                st.write(f"  EV50: {spool['ev50']}")
-                            if spool['status']:
-                                st.write(f"  Status: {spool['status']}")
+                # Display results from session state
+                if 'spool_search_results' in st.session_state and st.session_state.spool_search_results:
+                    results = st.session_state.spool_search_results
+                    st.success(f"Found {len(results)} spool(s)")
 
-                            # Check deployment history for this spool
-                            deps = find_spool_in_deployments(spool['serial'])
-                            if deps:
-                                st.write(f"  Deployed {len(deps)} time(s)")
-                                latest = deps[0]  # Most recent deployment
-                                st.write(f"  Last: {latest['mooringid']} @ {latest['depth']}m" if latest['depth'] else f"  Last: {latest['mooringid']}")
+                    # Show compact results in sidebar
+                    for spool in results[:10]:  # Limit to 10 results
+                        st.write(f"**{spool['serial']}** - {spool['length']}m")
+                        if spool['ev50']:
+                            st.write(f"  EV50: {spool['ev50']}")
+                        if spool['status']:
+                            st.write(f"  Status: {spool['status']}")
 
-                            st.write("---")
+                        # Check deployment history for this spool
+                        deps = find_spool_in_deployments(spool['serial'])
+                        if deps:
+                            st.write(f"  Deployed {len(deps)} time(s)")
+                            latest = deps[0]  # Most recent deployment
+                            st.write(f"  Last: {latest['mooringid']} @ {latest['depth']}m" if latest['depth'] else f"  Last: {latest['mooringid']}")
 
-                        if len(results) > 10:
-                            st.write(f"... and {len(results) - 10} more results")
-                    else:
-                        st.warning("No spools found")
+                        st.write("---")
+
+                    if len(results) > 10:
+                        st.write(f"... and {len(results) - 10} more results")
+                elif 'spool_search_results' in st.session_state and st.session_state.spool_search_results is not None:
+                    st.warning("No spools found")
 
             with tab3:
                 st.write("**View detailed deployment history**")
@@ -1355,10 +1381,24 @@ def main():
 
             with release_tab1:
                 release_lookup_sn = st.text_input("Enter Release S/N:", key="sidebar_release_lookup_sn")
-                release_lookup_button = st.button("Look Up", key="sidebar_release_lookup_button")
+                release_lookup_button = st.button("Look Up", key="sidebar_release_lookup_button", use_container_width=True)
+
+                if 'release_quick_lookup_result' in st.session_state and st.session_state.release_quick_lookup_result:
+                    clear_button = st.button("Clear Results", key="clear_release_quick_lookup", use_container_width=True)
+                    if clear_button:
+                        del st.session_state.release_quick_lookup_result
+                        st.rerun()
 
                 if release_lookup_button and release_lookup_sn:
                     deployments = find_release_in_deployments(release_lookup_sn)
+                    # Store in session state
+                    st.session_state.release_quick_lookup_result = {'sn': release_lookup_sn, 'deployments': deployments}
+
+                # Display from session state
+                if 'release_quick_lookup_result' in st.session_state and st.session_state.release_quick_lookup_result:
+                    lookup_data = st.session_state.release_quick_lookup_result
+                    deployments = lookup_data['deployments']
+                    release_lookup_sn = lookup_data['sn']
                     if deployments:
                         st.success(f"✅ Found Release: {release_lookup_sn}")
 
@@ -1389,9 +1429,18 @@ def main():
                 search_release_serial = st.text_input("S/N contains:", key="sidebar_search_release_serial")
                 search_release_type = st.text_input("Type contains:", key="sidebar_search_release_type")
                 search_int_freq = st.text_input("Int. Freq contains:", key="sidebar_search_int_freq")
-                search_reply_freq = st.text_input("Reply Freq contains:", key="sidebar_search_reply_freq")
+                search_reply_freq = st.text_input("Reply Freq:", key="sidebar_search_reply_freq")
 
-                if st.button("Search", key="sidebar_release_advanced_search"):
+                # Simple sequential buttons
+                search_button = st.button("Search Releases", key="sidebar_release_advanced_search", use_container_width=True)
+
+                if 'release_search_results' in st.session_state and st.session_state.release_search_results:
+                    clear_button = st.button("Clear Results", key="clear_release_search", use_container_width=True)
+                    if clear_button:
+                        del st.session_state.release_search_results
+                        st.rerun()
+
+                if search_button:
                     results = search_releases_advanced(
                         serial_pattern=search_release_serial if search_release_serial else None,
                         type_pattern=search_release_type if search_release_type else None,
@@ -1399,52 +1448,58 @@ def main():
                         reply_freq=search_reply_freq if search_reply_freq else None
                     )
 
-                    if results:
-                        st.success(f"Found {len(results)} release(s)")
+                    # Store results in session state
+                    st.session_state.release_search_results = results
 
-                        for release in results[:10]:
-                            st.write(f"**S/N: {release['serial']}**")
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.write(f"Type: {release['type'] or 'N/A'}")
-                                st.write(f"Int. Freq: {release['int_freq'] or 'N/A'}")
-                            with col2:
-                                st.write(f"Reply Freq: {release['reply_freq'] or 'N/A'}")
-                                st.write(f"Position: {release['position']}")
+                # Display results from session state
+                if 'release_search_results' in st.session_state and st.session_state.release_search_results:
+                    results = st.session_state.release_search_results
+                    st.success(f"Found {len(results)} release(s)")
 
-                            # Display release command codes
-                            release_val = release.get('release', 'N/A') or 'N/A'
-                            disable_val = release.get('disable', 'N/A') or 'N/A'
-                            enable_val = release.get('enable', 'N/A') or 'N/A'
+                    # Show results in sidebar (compact view)
+                    for release in results[:10]:  # Limit to 10 results
+                        st.write(f"**S/N: {release['serial']}**")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"Type: {release['type'] or 'N/A'}")
+                            st.write(f"Int. Freq: {release['int_freq'] or 'N/A'}")
+                        with col2:
+                            st.write(f"Reply Freq: {release['reply_freq'] or 'N/A'}")
+                            st.write(f"Position: {release['position']}")
 
-                            # Truncate long codes for display
-                            if len(str(release_val)) > 15:
-                                release_display = str(release_val)[:12] + "..."
-                            else:
-                                release_display = release_val
+                        # Display release command codes
+                        release_val = release.get('release', 'N/A') or 'N/A'
+                        disable_val = release.get('disable', 'N/A') or 'N/A'
+                        enable_val = release.get('enable', 'N/A') or 'N/A'
 
-                            if len(str(disable_val)) > 15:
-                                disable_display = str(disable_val)[:12] + "..."
-                            else:
-                                disable_display = disable_val
+                        # Truncate long codes for display
+                        if len(str(release_val)) > 15:
+                            release_display = str(release_val)[:12] + "..."
+                        else:
+                            release_display = release_val
 
-                            if len(str(enable_val)) > 15:
-                                enable_display = str(enable_val)[:12] + "..."
-                            else:
-                                enable_display = enable_val
+                        if len(str(disable_val)) > 15:
+                            disable_display = str(disable_val)[:12] + "..."
+                        else:
+                            disable_display = disable_val
 
-                            st.write(f"Release: {release_display} | Disable: {disable_display} | Enable: {enable_display}")
+                        if len(str(enable_val)) > 15:
+                            enable_display = str(enable_val)[:12] + "..."
+                        else:
+                            enable_display = enable_val
 
-                            # Check how many times used
-                            deps = find_release_in_deployments(release['serial'])
-                            if deps:
-                                st.write(f"Used {len(deps)} time(s)")
-                            st.write("---")
+                        st.write(f"Release: {release_display} | Disable: {disable_display} | Enable: {enable_display}")
 
-                        if len(results) > 10:
-                            st.write(f"... and {len(results) - 10} more results")
-                    else:
-                        st.warning("No releases found")
+                        # Check how many times used
+                        deps = find_release_in_deployments(release['serial'])
+                        if deps:
+                            st.write(f"Used {len(deps)} time(s)")
+                        st.write("---")
+
+                    if len(results) > 10:
+                        st.write(f"... and {len(results) - 10} more results")
+                elif 'release_search_results' in st.session_state and st.session_state.release_search_results is not None:
+                    st.warning("No releases found")
 
     # Get list of sites for dropdown
     available_sites = get_distinct_sites()
@@ -1508,8 +1563,15 @@ def main():
                 current_record_dict = current_record.to_dict() if hasattr(current_record, 'to_dict') else dict(current_record)
                 st.session_state.selected_deployment = current_record_dict
 
+                # Set flag to trigger rerun for proper widget initialization
+                if 'need_rerun_for_time' not in st.session_state:
+                    st.session_state.need_rerun_for_time = True
+                    st.rerun()
+
                 # Parse JSON fields for display
                 deployment_info = parse_json_field(current_record_dict.get('deployment_info', '{}'))
+
+
 
                 # Display key info
                 info_cols = st.columns(4)
@@ -1544,6 +1606,8 @@ def main():
         met_obs = parse_json_field(record.get('met_obs', '{}'))
         flyby = parse_json_field(record.get('flyby', '{}'))
 
+
+
         # Set defaults from parsed JSON
         default_site = record.get('site', '')
         default_mooringid = record.get('mooringid', '')
@@ -1555,32 +1619,47 @@ def main():
         default_depth = record.get('depth', '')
         default_mooring_type = deployment_info.get('mooring_type', '')
 
-        # Parse deployment date
+        # Parse deployment date - simplified and more robust
         dep_date_str = deployment_info.get('dep_date', '')
+        default_deployment_start_date = None
+
         if dep_date_str:
             try:
-                default_deployment_start_date = datetime.strptime(dep_date_str, '%m/%d/%Y').date()
-            except:
-                default_deployment_start_date = None
-        else:
-            default_deployment_start_date = None
+                # Parse the date string
+                parsed_datetime = datetime.datetime.strptime(dep_date_str.strip(), '%m/%d/%Y')
+                default_deployment_start_date = parsed_datetime.date()
+            except (ValueError, AttributeError) as e:
+                # Try alternative date formats if needed
+                try:
+                    # Try with leading zeros (e.g., "04/24/2012" instead of "4/24/2012")
+                    parts = dep_date_str.strip().split('/')
+                    if len(parts) == 3:
+                        month, day, year = parts
+                        parsed_datetime = datetime.datetime(int(year), int(month), int(day))
+                        default_deployment_start_date = parsed_datetime.date()
+                except:
+                    default_deployment_start_date = None
 
-        # Parse deployment time
+        # Parse deployment time - simplified and more robust
         dep_time_str = deployment_info.get('deployment_start_time', '')
+        default_deployment_start_time = None
+
         if dep_time_str:
             try:
-                parts = dep_time_str.strip().split(':')
-                if len(parts) >= 2:
-                    hour = int(parts[0])
-                    minute = int(parts[1])
-                    second = int(parts[2]) if len(parts) > 2 else 0
-                    default_deployment_start_time = time(hour, minute, second)
-                else:
+                # Parse time string
+                dep_time_str = dep_time_str.strip()
+                # Try direct parsing with datetime - this should work for HH:MM:SS format
+                parsed_time = datetime.datetime.strptime(dep_time_str, '%H:%M:%S').time()
+                default_deployment_start_time = parsed_time
+            except ValueError:
+                # Try HH:MM format
+                try:
+                    parsed_time = datetime.datetime.strptime(dep_time_str, '%H:%M').time()
+                    default_deployment_start_time = parsed_time
+                except ValueError:
                     default_deployment_start_time = None
-            except:
+            except Exception:
                 default_deployment_start_time = None
-        else:
-            default_deployment_start_time = None
 
         # Met sensors defaults
         atrh_sensor = met_sensors.get('atrh', {})
@@ -1662,7 +1741,7 @@ def main():
         anchor_date_str = anchor_drop.get('date', '')
         if anchor_date_str:
             try:
-                default_anchor_date = datetime.strptime(anchor_date_str, '%m/%d/%Y').date()
+                default_anchor_date = datetime.datetime.strptime(anchor_date_str, '%m/%d/%Y').date()
             except:
                 default_anchor_date = date.today()
 
@@ -1680,7 +1759,7 @@ def main():
         ship_date_str = ship_met.get('date', '')
         if ship_date_str:
             try:
-                default_ship_date = datetime.strptime(ship_date_str, '%m/%d/%Y').date()
+                default_ship_date = datetime.datetime.strptime(ship_date_str, '%m/%d/%Y').date()
             except:
                 default_ship_date = date.today()
 
@@ -1697,7 +1776,7 @@ def main():
         buoy_date_str = buoy_met.get('date', '')
         if buoy_date_str:
             try:
-                default_buoy_date = datetime.strptime(buoy_date_str, '%m/%d/%Y').date()
+                default_buoy_date = datetime.datetime.strptime(buoy_date_str, '%m/%d/%Y').date()
             except:
                 default_buoy_date = date.today()
 
@@ -1872,9 +1951,14 @@ def main():
             )
         with col_start_time:
             st.markdown('<span style="color:red; font-weight:bold;">Deployment Start Time (GMT) *</span>', unsafe_allow_html=True)
+
+            # Clear the rerun flag if it was set
+            if 'need_rerun_for_time' in st.session_state:
+                del st.session_state['need_rerun_for_time']
+
             deployment_start_time = st.time_input(
                 "Deployment Start Time",
-                value=default_deployment_start_time,
+                value=default_deployment_start_time if default_deployment_start_time else datetime.time(0, 0),
                 key="deployment_start_time",
                 label_visibility="collapsed",
                 help="Enter time in GMT format"
@@ -2437,7 +2521,7 @@ def main():
         anchor_row4 = st.columns(2)
         with anchor_row4[0]:
             # Auto-calculate Total Time (read-only)
-            from datetime import datetime, timedelta
+            from datetime import timedelta
 
             start_time_str = deployment_start_time.strftime('%H:%M:%S') if deployment_start_time else ""
             anchor_time_str = anchor_time
@@ -2445,7 +2529,7 @@ def main():
             def parse_time(tstr):
                 for fmt in ("%H:%M:%S", "%H:%M"):
                     try:
-                        return datetime.strptime(tstr, fmt).time()
+                        return datetime.datetime.strptime(tstr, fmt).time()
                     except Exception:
                         continue
                 return None
@@ -2455,9 +2539,9 @@ def main():
 
             total_time_str = ""
             if start_time and anchor_drop:
-                today = datetime.today()
-                dt_start = datetime.combine(today, start_time)
-                dt_anchor = datetime.combine(today, anchor_drop)
+                today = datetime.date.today()
+                dt_start = datetime.datetime.combine(today, start_time)
+                dt_anchor = datetime.datetime.combine(today, anchor_drop)
                 if dt_anchor < dt_start:
                     dt_anchor += timedelta(days=1)  # handle overnight
                 delta = dt_anchor - dt_start

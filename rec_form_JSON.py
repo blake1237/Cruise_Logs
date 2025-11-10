@@ -274,6 +274,14 @@ def export_record_to_xml(record_data):
             elem = ET.SubElement(release_info, field)
             elem.text = str(record_data[field])
 
+    # Recovery Problems or Comments
+    if 'recovery_problems' in record_data and record_data['recovery_problems']:
+        recovery_problems_elem = ET.SubElement(root, "recovery_problems")
+        recovery_problems_elem.text = str(record_data['recovery_problems'])
+    elif 'recprobcomments' in record_data and record_data['recprobcomments']:
+        recovery_problems_elem = ET.SubElement(root, "recovery_problems")
+        recovery_problems_elem.text = str(record_data['recprobcomments'])
+
     # Subsurface Clock Errors
     if 'subsurface_clock_errors' in record_data:
         try:
@@ -818,7 +826,8 @@ def update_recovery_data(recovery_id, form_data):
             'rel_type_2': ['rel_type_2'],
             'rel_sn_2': ['rel_sn_2'],
             'rel_2_rec': ['rel_2_rec'],
-            'release_comments': ['release_comments']
+            'release_comments': ['relprob'],
+            'recovery_problems': ['recprobcomments']
         }
 
         for form_field, possible_db_fields in release_info_fields.items():
@@ -1312,7 +1321,8 @@ def save_recovery_data(form_data):
             'rel_type_2': ['rel_type_2'],
             'rel_sn_2': ['rel_sn_2'],
             'rel_2_rec': ['rel_2_rec'],
-            'release_comments': ['release_comments']
+            'release_comments': ['relprob'],
+            'recovery_problems': ['recprobcomments']
         }
 
         for form_field, possible_db_fields in release_info_fields.items():
@@ -1965,7 +1975,10 @@ def main():
                     pass
 
             # Release Comments defaults
-            default_release_comments = record.get('release_comments', '')
+            default_release_comments = record.get('relprob', '')
+
+            # Recovery Problems or Comments defaults
+            default_recovery_problems = record.get('recprobcomments', '')
 
             # Fishing/Vandalism Evidence defaults
             default_fishing_vandalism = record.get('fishing_or_vandalism', '')
@@ -2057,7 +2070,6 @@ def main():
                 default_subsurface_instruments = []
 
             # Tube defaults - read from database columns
-            # Debug: Log what we're reading from the record
             raw_batlogic = record.get('batlogic')
             raw_battransmit = record.get('battransmit')
             raw_batdate = record.get('batdate')
@@ -2417,6 +2429,9 @@ def main():
             default_release2_enable = ""
             default_release_comments = ""
 
+            # Recovery Problems or Comments defaults for new records
+            default_recovery_problems = ""
+
             # Fishing/Vandalism Evidence defaults for new records
             default_fishing_vandalism = ""
 
@@ -2485,7 +2500,7 @@ def main():
         with col3:
             cruise = st.text_input("Cruise *", value=default_cruise, key="cruise")
         with col4:
-            mooring_options = ["", "taught", "slack"]
+            mooring_options = ["", "Taut", "Slack"]
             default_mooring_value = default_mooring_type if 'default_mooring_type' in locals() else ""
             try:
                 mooring_index = mooring_options.index(default_mooring_value)
@@ -3678,6 +3693,18 @@ def main():
                         'comments': comments
                     })
 
+        # Recovery Problems or Comments section
+        st.markdown("---")
+        st.markdown("#### Recovery Problems or Comments")
+        recovery_problems = st.text_area(
+            "Recovery Problems or Comments",
+            value=default_recovery_problems,
+            height=600,
+            key="recovery_problems",
+            label_visibility="collapsed",
+            help="Enter any problems or comments regarding the recovery"
+        )
+
         # Submit button and Export button row
         button_col1, button_col2 = st.columns([3, 1])
         with button_col1:
@@ -3814,6 +3841,8 @@ def main():
                 'release2_disable': release2_disable,
                 'release2_enable': release2_enable,
                 'release_comments': release_comments,
+                # Recovery Problems or Comments
+                'recovery_problems': recovery_problems,
             }
 
             # Validate required fields (only Cruise and Mooring ID are required)
