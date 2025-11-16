@@ -9,7 +9,7 @@ DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
 
 # Page configuration
 st.set_page_config(
-    page_title="Cruise Information Management",
+    page_title="GTMBA Cruise Information",
     page_icon="🚢",
     layout="wide"
 )
@@ -89,7 +89,7 @@ def get_unique_values(column):
     return result[column].tolist()
 
 # Main app
-st.title("🚢 Cruise Information Management System")
+st.title("🚢 GTMBA Cruise Information")
 
 # Create tabs
 tab1, tab2 = st.tabs(["📊 View & Search", "➕ Add New Cruise"])
@@ -250,10 +250,10 @@ with tab2:
 # Footer
 st.divider()
 st.markdown(
-    """
+    f"""
     <div style='text-align: center; color: gray;'>
         Cruise Information Management System v1.0 |
-        Database: <code>~/Apps/databases/my_database.db</code>
+        Database: <code>{DB_PATH}</code>
     </div>
     """,
     unsafe_allow_html=True
