@@ -974,192 +974,13 @@ def main():
     if 'num_subsurface_sensors' not in st.session_state:
         st.session_state.num_subsurface_sensors = 15
 
-    # Mode selection and debugging
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col1:
-        mode = st.radio("Mode", ["Search/Edit", "Add New"], key="mode_selector")
-        st.session_state.mode = mode
+    # Mode selection
+    mode = st.radio("Mode", ["Search/Edit", "Add New"], key="mode_selector", horizontal=True)
+    st.session_state.mode = mode
 
-    with col3:
-        # Debug dropdown
-        debug_option = st.selectbox(
-            "🐛 Debug Tools",
-            ["None", "Show DB Info", "Show Session State", "Show Search Results", "Test DB Connection", "Show Form Data", "Show Subsurface Sensors", "Show Available Fields", "Show Field Mapping"],
-            key="debug_selector"
-        )
-
-        # Handle debug actions
-        if debug_option != "None":
-            st.expander_debug = st.expander(f"Debug: {debug_option}", expanded=True)
-            with st.expander_debug:
-                if debug_option == "Show DB Info":
-                    try:
-                        conn = get_db_connection()
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT COUNT(*) FROM deployments_normalized")
-                        count = cursor.fetchone()[0]
-                        st.write(f"**Total records:** {count}")
-
-                        cursor.execute("PRAGMA table_info(deployments_normalized)")
-                        columns = cursor.fetchall()
-                        st.write("**Table columns:**")
-                        for col in columns:
-                            st.write(f"- {col[1]} ({col[2]})")
-                        conn.close()
-                    except Exception as e:
-                        st.error(f"Database error: {e}")
-
-                elif debug_option == "Show Session State":
-                    st.json(dict(st.session_state))
-
-                elif debug_option == "Show Search Results":
-                    if st.session_state.search_results is not None:
-                        st.write(f"**Search results shape:** {st.session_state.search_results.shape}")
-                        st.dataframe(st.session_state.search_results)
-                    else:
-                        st.write("No search results available")
-
-                elif debug_option == "Test DB Connection":
-                    try:
-                        conn = get_db_connection()
-                        st.success("✅ Database connection successful")
-                        cursor = conn.cursor()
-                        cursor.execute("SELECT site, mooringid, cruise FROM deployments_normalized LIMIT 5")
-                        sample_data = cursor.fetchall()
-                        st.write("**Sample records:**")
-                        for row in sample_data:
-                            st.write(f"- Site: {row[0]}, Mooring: {row[1]}, Cruise: {row[2]}")
-                        conn.close()
-                    except Exception as e:
-                        st.error(f"❌ Database connection failed: {e}")
-
-                elif debug_option == "Show Form Data":
-                    if st.session_state.form_data:
-                        st.json(st.session_state.form_data)
-                    else:
-                        st.write("No form data available")
-
-                elif debug_option == "Show Subsurface Sensors":
-                    if hasattr(st.session_state, 'subsurface_sensors') and st.session_state.subsurface_sensors:
-                        st.write(f"**Found {len(st.session_state.subsurface_sensors)} subsurface sensors:**")
-                        for i, sensor in enumerate(st.session_state.subsurface_sensors):
-                            if any(sensor.values()):  # Only show sensors with data
-                                st.write(f"**Sensor {i+1}:**")
-                                st.json(sensor)
-                    else:
-                        st.write("No subsurface sensors in session state")
-
-                    # Also show current selected deployment subsurface data
-                    if st.session_state.selected_deployment:
-                        subsurface_raw = st.session_state.selected_deployment.get('subsurface_sensors', '')
-                        st.write("**Raw subsurface JSON from database:**")
-                        st.code(subsurface_raw)
-
-                        try:
-                            parsed = parse_json_field(subsurface_raw)
-                            st.write("**Parsed subsurface data:**")
-                            st.json(parsed)
-                        except Exception as e:
-                            st.error(f"Error parsing: {e}")
-
-                elif debug_option == "Show Available Fields":
-                    if st.session_state.selected_deployment:
-                        st.write("**All available fields from current record:**")
-
-                        # Show core fields
-                        st.write("**Core Fields:**")
-                        core_fields = ['id', 'site', 'mooringid', 'cruise', 'latitude', 'longitude', 'depth']
-                        for field in core_fields:
-                            value = st.session_state.selected_deployment.get(field, 'N/A')
-                            st.write(f"  • {field}: {value}")
-
-                        # Show JSON fields and their parsed contents
-                        json_fields = ['deployment_info', 'met_sensors', 'hardware', 'nylon_spools',
-                                     'nylon_config', 'subsurface_sensors', 'acoustic_releases',
-                                     'anchor_drop', 'met_obs', 'flyby']
-
-                        for json_field in json_fields:
-                            st.write(f"**{json_field.upper()} JSON Field:**")
-                            raw_data = st.session_state.selected_deployment.get(json_field, '{}')
-
-                            try:
-                                parsed_data = parse_json_field(raw_data)
-                                if isinstance(parsed_data, dict):
-                                    if parsed_data:  # Not empty
-                                        for key, value in parsed_data.items():
-                                            st.write(f"  • {key}: {value}")
-                                    else:
-                                        st.write("  (empty)")
-                                elif isinstance(parsed_data, list):
-                                    st.write(f"  Array with {len(parsed_data)} items")
-                                    for i, item in enumerate(parsed_data[:3]):  # Show first 3 items
-                                        if isinstance(item, dict):
-                                            st.write(f"    Item {i+1}: {list(item.keys())}")
-                                        else:
-                                            st.write(f"    Item {i+1}: {item}")
-                                    if len(parsed_data) > 3:
-                                        st.write(f"    ... and {len(parsed_data) - 3} more items")
-                            except Exception as e:
-                                st.error(f"  Error parsing {json_field}: {e}")
-                                st.code(raw_data)
-                    else:
-                        st.write("No deployment selected. Please search and select a record first.")
-
-                elif debug_option == "Show Field Mapping":
-                    if st.session_state.selected_deployment:
-                        st.write("**Field Mapping Analysis:**")
-
-                        # Check nylon_config fields
-                        st.write("**NYLON_CONFIG Fields:**")
-                        nylon_config_raw = st.session_state.selected_deployment.get('nylon_config', '{}')
-                        nylon_config = parse_json_field(nylon_config_raw)
-
-                        expected_nylon_fields = {
-                            'wire_sn': 'Wire S/N',
-                            'wire_length': 'Wire Length',
-                            'wire_ln': 'Wire Length (alt)',
-                            'hardware_length': 'Hardware Length',
-                            'nylon_below_release': 'Nylon Below Release',
-                            'projected_scope': 'Projected Scope',
-                            'wire_dep_number': 'Wire Deployment Number',
-                            'top_section_sn': 'Top Section S/N',
-                            'top_section_usage': 'Top Section Usage'
-                        }
-
-                        for field, description in expected_nylon_fields.items():
-                            value = nylon_config.get(field, 'NOT FOUND')
-                            status = "✅" if value != 'NOT FOUND' else "❌"
-                            st.write(f"  {status} {description} ({field}): {value}")
-
-                        st.write("\n**Available nylon_config keys:**")
-                        if nylon_config:
-                            for key in nylon_config.keys():
-                                st.write(f"  • {key}")
-                        else:
-                            st.write("  (nylon_config is empty)")
-
-                        # Check original flat table for wire length data
-                        st.write("\n**Checking Original Database for Wire Length:**")
-                        try:
-                            conn = get_db_connection()
-                            cursor = conn.cursor()
-                            mooringid = st.session_state.selected_deployment.get('mooringid', '')
-                            cursor.execute("SELECT wire_ln, wiresn FROM deployments WHERE mooringid = ?", (mooringid,))
-                            original_data = cursor.fetchone()
-                            if original_data:
-                                st.write(f"  • wire_ln: {original_data[0]}")
-                                st.write(f"  • wiresn: {original_data[1]}")
-                            else:
-                                st.write("  No original data found")
-                            conn.close()
-                        except Exception as e:
-                            st.error(f"Error checking original data: {e}")
-                    else:
-                        st.write("No deployment selected. Please search and select a record first.")
-
-        # Clear subsurface sensors when switching to Add New mode
-        if mode == "Add New" and st.session_state.subsurface_sensors:
-            st.session_state.subsurface_sensors = []
+    # Clear subsurface sensors when switching to Add New mode
+    if mode == "Add New" and st.session_state.subsurface_sensors:
+        st.session_state.subsurface_sensors = []
 
     # Sidebar with comprehensive spool and release lookup
     if mode in ["Add New", "Search/Edit"]:
@@ -2251,7 +2072,12 @@ def main():
                 spool_sns.append(spool_sn)
 
             with cols[2]:
-                length_value = default_spool_lengths[i]
+                # Check if we have a fetched length for this spool
+                if 'fetched_lengths' in st.session_state and i in st.session_state.fetched_lengths:
+                    length_value = st.session_state.fetched_lengths[i]
+                else:
+                    length_value = default_spool_lengths[i]
+
                 spool_length = st.text_input(
                     f"Spool {i+1} Length",
                     value=length_value,

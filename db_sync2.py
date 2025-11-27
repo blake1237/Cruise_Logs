@@ -302,7 +302,7 @@ Authentication failed. For NOAA CAC authentication:
                 return os.path.getmtime(self.local_db)
             return None
         except Exception as e:
-            logger.error(f"Failed to get local mtime: {e}")
+            logger.warning(f"Failed to get local mtime: {e}")
             return None
 
     def get_remote_mtime(self, ssh: Optional[paramiko.SSHClient]) -> Optional[float]:
@@ -325,7 +325,7 @@ Authentication failed. For NOAA CAC authentication:
 
             return float(result)
         except Exception as e:
-            logger.error(f"Failed to get remote mtime: {e}")
+            logger.warning(f"Failed to get remote mtime: {e}")
             return None
 
     def download_remote_db(self, ssh: Optional[paramiko.SSHClient], local_path: str):

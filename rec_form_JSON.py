@@ -178,43 +178,159 @@ def export_record_to_xml(record_data):
     Returns:
         str: Pretty-formatted XML string
     """
-    # Create root element
-    root = ET.Element("recovery_record")
+    # Create root element - 'operation' for local style
+    root = ET.Element("operation")
 
-    # Add timestamp
-    export_time = ET.SubElement(root, "export_timestamp")
-    export_time.text = datetime.now().isoformat()
+    # Operation type (always 'recover' for recovery records)
+    type_elem = ET.SubElement(root, "type")
+    type_elem.text = "recover"
 
-    # Group related fields
-    # Basic Information
-    basic_info = ET.SubElement(root, "basic_information")
-    for field in ['site', 'mooringid', 'cruise', 'mooring_status', 'mooring_type', 'personnel']:
-        if field in record_data and record_data[field]:
-            elem = ET.SubElement(basic_info, field)
-            elem.text = str(record_data[field])
+    # Site
+    if 'site' in record_data and record_data['site']:
+        site_elem = ET.SubElement(root, "site")
+        site_elem.text = str(record_data['site'])
 
-    # Location Information
-    location_info = ET.SubElement(root, "location_information")
-    for field in ['argos_latitude', 'argos_longitude', 'release_latitude', 'release_longitude']:
-        if field in record_data and record_data[field]:
-            elem = ET.SubElement(location_info, field)
-            elem.text = str(record_data[field])
+    # Cruise
+    cruise_elem = ET.SubElement(root, "cruise")
+    if 'cruise' in record_data and record_data['cruise']:
+        cruise_elem.text = str(record_data['cruise'])
 
-    # Time Information
-    time_info = ET.SubElement(root, "time_information")
-    for field in ['touch_time', 'fire_time', 'fire_date', 'release_fire_date', 'relfiredate', 'rec_date', 'recovery_date', 'date']:
-        if field in record_data and record_data[field]:
-            elem = ET.SubElement(time_info, field)
-            elem.text = str(record_data[field])
+    # Mooring ID
+    mooring_id_elem = ET.SubElement(root, "mooring_id")
+    if 'mooring_id' in record_data and record_data['mooring_id']:
+        mooring_id_elem.text = str(record_data['mooring_id'])
 
-    # Surface Instrument Information
-    surface_inst = ET.SubElement(root, "surface_instruments")
-    for field in ['buoy_sn', 'buoy_type', 'buoy_hull_color', 'buoy_data_complete', 'buoy_vdata_complete']:
-        if field in record_data and record_data[field]:
-            elem = ET.SubElement(surface_inst, field)
-            elem.text = str(record_data[field])
+    # Mooring Type
+    if 'mooring_type' in record_data and record_data['mooring_type']:
+        mooring_type_elem = ET.SubElement(root, "mooring_type")
+        mooring_type_elem.text = str(record_data['mooring_type'])
+
+    # Personnel
+    personnel_elem = ET.SubElement(root, "personnel")
+    if 'personnel' in record_data and record_data['personnel']:
+        personnel_elem.text = str(record_data['personnel'])
+
+    # Location
+    location_elem = ET.SubElement(root, "location")
+    latitude_elem = ET.SubElement(location_elem, "latitude")
+    if 'relfirelat' in record_data and record_data['relfirelat']:
+        latitude_elem.text = str(record_data['relfirelat'])
+    elif 'argoslat' in record_data and record_data['argoslat']:
+        latitude_elem.text = str(record_data['argoslat'])
+
+    longitude_elem = ET.SubElement(location_elem, "longitude")
+    if 'relfirelong' in record_data and record_data['relfirelong']:
+        longitude_elem.text = str(record_data['relfirelong'])
+    elif 'argoslong' in record_data and record_data['argoslong']:
+        longitude_elem.text = str(record_data['argoslong'])
+
+    # Touch time/date
+    touch_elem = ET.SubElement(root, "touch")
+    touch_date_elem = ET.SubElement(touch_elem, "date")
+    touch_time_elem = ET.SubElement(touch_elem, "time")
+    if 'relfiredate' in record_data and record_data['relfiredate']:
+        touch_date_elem.text = str(record_data['relfiredate'])
+    if 'touch_time' in record_data and record_data['touch_time']:
+        # Remove microseconds from time format
+        time_str = str(record_data['touch_time'])
+        if '.' in time_str:
+            time_str = time_str.split('.')[0]
+        touch_time_elem.text = time_str
+
+    # Surface Instruments
+    surface_elem = ET.SubElement(root, "surface")
+
+    # Add SYS/ATLAS instrument if tube info exists
+    if ('tubesn' in record_data and record_data['tubesn']) or \
+       ('ptt_id' in record_data and record_data['ptt_id']):
+        sys_inst = ET.SubElement(surface_elem, "instrument")
+        type_elem = ET.SubElement(sys_inst, "type")
+        type_elem.text = "SYS"
+        model_elem = ET.SubElement(sys_inst, "model")
+        model_elem.text = "ATLAS"
+        serial_elem = ET.SubElement(sys_inst, "serial")
+        serial_elem.text = str(record_data.get('tubesn', ''))
+        transmit_elem = ET.SubElement(sys_inst, "transmit")
+        transmit_elem.text = str(record_data.get('ptt_id', ''))
+        depth_elem = ET.SubElement(sys_inst, "depth")
+        condition_elem = ET.SubElement(sys_inst, "condition")
+        # Parse tube condition from buoy_condition if exists
+        if 'buoy_condition' in record_data and record_data['buoy_condition']:
+            condition_elem.text = str(record_data['buoy_condition'])
+
+    # Add ATRH instrument if exists
+    if 'atrh_sn' in record_data and record_data['atrh_sn']:
+        atrh_inst = ET.SubElement(surface_elem, "instrument")
+        type_elem = ET.SubElement(atrh_inst, "type")
+        type_elem.text = "ATRH"
+        model_elem = ET.SubElement(atrh_inst, "model")
+        model_elem.text = "MP101"
+        serial_elem = ET.SubElement(atrh_inst, "serial")
+        serial_elem.text = str(record_data['atrh_sn'])
+        depth_elem = ET.SubElement(atrh_inst, "depth")
+        condition_elem = ET.SubElement(atrh_inst, "condition")
+
+    # Add WIND instrument if exists
+    if 'windsn' in record_data and record_data['windsn']:
+        wind_inst = ET.SubElement(surface_elem, "instrument")
+        type_elem = ET.SubElement(wind_inst, "type")
+        type_elem.text = "WIND"
+        model_elem = ET.SubElement(wind_inst, "model")
+        model_elem.text = "RMYWM"
+        serial_elem = ET.SubElement(wind_inst, "serial")
+        serial_elem.text = str(record_data['windsn'])
+        depth_elem = ET.SubElement(wind_inst, "depth")
+        condition_elem = ET.SubElement(wind_inst, "condition")
+        # Parse wind condition from wind_condition JSON if exists
+        if 'wind_condition' in record_data and record_data['wind_condition']:
+            try:
+                import json
+                wind_cond = record_data['wind_condition']
+                if isinstance(wind_cond, str):
+                    wind_cond = json.loads(wind_cond)
+                if isinstance(wind_cond, dict):
+                    condition_elem.text = str(wind_cond.get('condition', ''))
+            except:
+                condition_elem.text = str(record_data['wind_condition'])
+
+    # Add RAIN instrument if exists
+    if 'rain_sn' in record_data and record_data['rain_sn']:
+        rain_inst = ET.SubElement(surface_elem, "instrument")
+        type_elem = ET.SubElement(rain_inst, "type")
+        type_elem.text = "RAIN"
+        model_elem = ET.SubElement(rain_inst, "model")
+        model_elem.text = "RM50203-34"
+        serial_elem = ET.SubElement(rain_inst, "serial")
+        serial_elem.text = str(record_data['rain_sn'])
+        depth_elem = ET.SubElement(rain_inst, "depth")
+        condition_elem = ET.SubElement(rain_inst, "condition")
+
+    # Add SWRAD (shortwave radiation) instrument if exists
+    if 'swrad_sn' in record_data and record_data['swrad_sn']:
+        swrad_inst = ET.SubElement(surface_elem, "instrument")
+        type_elem = ET.SubElement(swrad_inst, "type")
+        type_elem.text = "SWRAD"
+        model_elem = ET.SubElement(swrad_inst, "model")
+        model_elem.text = "PSP"
+        serial_elem = ET.SubElement(swrad_inst, "serial")
+        serial_elem.text = str(record_data['swrad_sn'])
+        depth_elem = ET.SubElement(swrad_inst, "depth")
+        condition_elem = ET.SubElement(swrad_inst, "condition")
+        # Parse swrad condition from swrad_condition JSON if exists
+        if 'swrad_condition' in record_data and record_data['swrad_condition']:
+            try:
+                import json
+                swrad_cond = record_data['swrad_condition']
+                if isinstance(swrad_cond, str):
+                    swrad_cond = json.loads(swrad_cond)
+                if isinstance(swrad_cond, dict):
+                    condition_elem.text = str(swrad_cond.get('condition', ''))
+            except:
+                condition_elem.text = str(record_data['swrad_condition'])
 
     # Subsurface Instruments
+    subsurf_elem = ET.SubElement(root, "subsurf")
+
     if 'subsurface_instruments' in record_data:
         try:
             import json
@@ -222,84 +338,457 @@ def export_record_to_xml(record_data):
             if isinstance(subsurface_data, str):
                 subsurface_data = json.loads(subsurface_data)
 
-            subsurface_elem = ET.SubElement(root, "subsurface_instruments")
+            # Also get instrument timing data if available
+            clock_errors = {}
+            timing_data = {}
+
+            # Try subsurface_clock_errors first (for compatibility)
+            if 'subsurface_clock_errors' in record_data:
+                clock_error_data = record_data['subsurface_clock_errors']
+                if isinstance(clock_error_data, str):
+                    clock_error_data = json.loads(clock_error_data)
+                if isinstance(clock_error_data, list):
+                    for idx, err in enumerate(clock_error_data):
+                        if err:
+                            clock_errors[idx] = err
+
+            # Also parse instrument_timing field
+            if 'instrument_timing' in record_data:
+                instrument_timing = record_data['instrument_timing']
+                if isinstance(instrument_timing, str):
+                    instrument_timing = json.loads(instrument_timing)
+                if isinstance(instrument_timing, list):
+                    for item in instrument_timing:
+                        if isinstance(item, dict) and item.get('position') != 'tube':
+                            try:
+                                pos = int(item.get('position', -1))
+                                if pos >= 0:
+                                    timing_data[pos] = {
+                                        'gmt_time': item.get('gmt_time', ''),
+                                        'instrument_time': item.get('instrument_time', ''),
+                                        'clock_error': item.get('clock_error', '')
+                                    }
+                            except (ValueError, TypeError):
+                                pass
+
             if isinstance(subsurface_data, list):
                 for idx, inst in enumerate(subsurface_data):
-                    inst_elem = ET.SubElement(subsurface_elem, f"instrument_{idx}")
-                    for key, value in inst.items():
-                        if value:
-                            field_elem = ET.SubElement(inst_elem, key)
-                            field_elem.text = str(value)
+                    if inst:  # Skip empty instruments
+                        inst_elem = ET.SubElement(subsurf_elem, "instrument")
+
+                        # Instrument type
+                        type_elem = ET.SubElement(inst_elem, "type")
+                        inst_type = inst.get('instrument_type', '')
+                        # Map instrument types to abbreviated codes
+                        if 'SSC' in inst_type.upper():
+                            type_elem.text = "SSC"
+                        elif 'TC' in inst_type.upper():
+                            type_elem.text = "TC"
+                        elif 'ADCP' in inst_type.upper():
+                            type_elem.text = "ADCP"
+                        elif 'PCO2' in inst_type.upper():
+                            type_elem.text = "PCO2"
+                        elif 'PH' in inst_type.upper():
+                            type_elem.text = "PH"
+                        else:
+                            type_elem.text = inst_type
+
+                        # Model
+                        model_elem = ET.SubElement(inst_elem, "model")
+                        model_elem.text = "ATLAS"
+
+                        # Serial number
+                        serial_elem = ET.SubElement(inst_elem, "serial")
+                        serial_elem.text = str(inst.get('serial_number', ''))
+
+                        # Depth
+                        depth_elem = ET.SubElement(inst_elem, "depth")
+                        depth_elem.text = str(inst.get('depth', ''))
+
+                        # Address
+                        if inst.get('address'):
+                            address_elem = ET.SubElement(inst_elem, "address")
+                            address_elem.text = str(inst['address'])
+
+                        # Get clock error info or timing info for this instrument
+                        err_info = clock_errors.get(idx, {})
+                        timing_info = timing_data.get(idx, {})
+
+                        # Merge timing data into err_info if not already present
+                        if timing_info:
+                            if not err_info.get('actual_time') and timing_info.get('gmt_time'):
+                                err_info['actual_time'] = timing_info['gmt_time']
+                            if not err_info.get('inst_time') and timing_info.get('instrument_time'):
+                                err_info['inst_time'] = timing_info['instrument_time']
+
+                        if err_info or timing_info:
+
+                            # On deck time - use timeout field from instrument
+                            ondeck_elem = ET.SubElement(inst_elem, "ondeck")
+                            ondeck_date = ET.SubElement(ondeck_elem, "date")
+                            ondeck_time = ET.SubElement(ondeck_elem, "time")
+
+                            # Use release fire date as base date
+                            base_date_str = str(record_data.get('relfiredate', ''))
+
+                            # Check for date_on_deck and time_on_deck fields first
+                            if 'date_on_deck' in record_data and record_data['date_on_deck']:
+                                ondeck_date.text = str(record_data['date_on_deck'])
+                            if 'time_on_deck' in record_data and record_data['time_on_deck']:
+                                time_str = str(record_data['time_on_deck'])
+                                if '.' in time_str:
+                                    time_str = time_str.split('.')[0]
+                                ondeck_time.text = time_str
+                            elif inst.get('timeout'):
+                                timeout_str = str(inst['timeout'])
+                                # If timeout contains date and time, split them
+                                if ' ' in timeout_str:
+                                    date_part, time_part = timeout_str.split(' ', 1)
+                                    ondeck_date.text = date_part
+                                    # Remove microseconds if present
+                                    if '.' in time_part:
+                                        time_part = time_part.split('.')[0]
+                                    ondeck_time.text = time_part
+                                else:
+                                    # Just a time - use fire date and check for day rollover
+                                    if '.' in timeout_str:
+                                        timeout_str = timeout_str.split('.')[0]
+                                    ondeck_time.text = timeout_str
+
+                                    # Check if we need to add a day (if timeout < touch_time, assume next day)
+                                    if base_date_str and 'touch_time' in record_data and record_data['touch_time']:
+                                        try:
+                                            from datetime import datetime, timedelta
+                                            touch_time_str = str(record_data['touch_time'])
+                                            if '.' in touch_time_str:
+                                                touch_time_str = touch_time_str.split('.')[0]
+
+                                            # Compare times (HH:MM:SS format)
+                                            touch_parts = touch_time_str.split(':')
+                                            timeout_parts = timeout_str.split(':')
+
+                                            if len(touch_parts) >= 2 and len(timeout_parts) >= 2:
+                                                touch_hours = int(touch_parts[0])
+                                                touch_mins = int(touch_parts[1])
+                                                timeout_hours = int(timeout_parts[0])
+                                                timeout_mins = int(timeout_parts[1])
+
+                                                # If timeout is earlier than touch time, it's probably next day
+                                                if (timeout_hours < touch_hours) or (timeout_hours == touch_hours and timeout_mins < touch_mins):
+                                                    # Parse the date and add one day
+                                                    # Handle various date formats (MM/DD/YYYY or YYYY-MM-DD)
+                                                    if '/' in base_date_str:
+                                                        date_obj = datetime.strptime(base_date_str, '%m/%d/%Y')
+                                                    else:
+                                                        date_obj = datetime.strptime(base_date_str, '%Y-%m-%d')
+                                                    next_day = date_obj + timedelta(days=1)
+                                                    # Format back to same format as input
+                                                    if '/' in base_date_str:
+                                                        ondeck_date.text = next_day.strftime('%m/%d/%Y')
+                                                    else:
+                                                        ondeck_date.text = next_day.strftime('%Y-%m-%d')
+                                                else:
+                                                    ondeck_date.text = base_date_str
+                                            else:
+                                                ondeck_date.text = base_date_str
+                                        except:
+                                            ondeck_date.text = base_date_str
+                                    else:
+                                        ondeck_date.text = base_date_str
+
+                            # Clock time - use fire date and Inst. Time from form
+                            clock_elem = ET.SubElement(inst_elem, "clock")
+                            clock_date = ET.SubElement(clock_elem, "date")
+                            clock_date.text = base_date_str  # Use fire date
+                            clock_time = ET.SubElement(clock_elem, "time")
+                            if err_info.get('inst_time'):
+                                # Remove microseconds from time format
+                                time_str = str(err_info['inst_time'])
+                                if '.' in time_str:
+                                    time_str = time_str.split('.')[0]
+                                clock_time.text = time_str
+
+                            # UTC time - use fire date and Actual Time from form
+                            utc_elem = ET.SubElement(inst_elem, "utc")
+                            utc_date = ET.SubElement(utc_elem, "date")
+                            utc_date.text = base_date_str  # Use fire date
+                            utc_time = ET.SubElement(utc_elem, "time")
+                            if err_info.get('actual_time'):
+                                # Remove microseconds from time format
+                                time_str = str(err_info['actual_time'])
+                                if '.' in time_str:
+                                    time_str = time_str.split('.')[0]
+                                utc_time.text = time_str
+
+                            # Condition
+                            condition_elem = ET.SubElement(inst_elem, "condition")
+                            condition_elem.text = str(inst.get('condition', ''))
+
+                            # Count (number of records)
+                            if err_info.get('number_of_records'):
+                                count_elem = ET.SubElement(inst_elem, "count")
+                                count_elem.text = str(err_info['number_of_records']).zfill(4)
+
+                            # Filename
+                            if err_info.get('filename'):
+                                fname_elem = ET.SubElement(inst_elem, "fname")
+                                fname_elem.text = str(err_info['filename'])
+                        elif timing_data.get(idx):  # If we have timing data but no clock error data
+                            # Still add timing elements using instrument_timing data
+                            timing_info = timing_data[idx]
+
+                            # On deck time - use timeout field from instrument
+                            ondeck_elem = ET.SubElement(inst_elem, "ondeck")
+                            ondeck_date = ET.SubElement(ondeck_elem, "date")
+                            ondeck_time = ET.SubElement(ondeck_elem, "time")
+
+                            # Use release fire date as base date
+                            base_date_str = str(record_data.get('relfiredate', ''))
+
+                            # Check for date_on_deck and time_on_deck fields first
+                            if 'date_on_deck' in record_data and record_data['date_on_deck']:
+                                ondeck_date.text = str(record_data['date_on_deck'])
+                            if 'time_on_deck' in record_data and record_data['time_on_deck']:
+                                time_str = str(record_data['time_on_deck'])
+                                if '.' in time_str:
+                                    time_str = time_str.split('.')[0]
+                                ondeck_time.text = time_str
+                            elif inst and inst.get('timeout'):
+                                timeout_str = str(inst['timeout'])
+                                # If timeout contains date and time, split them
+                                if ' ' in timeout_str:
+                                    date_part, time_part = timeout_str.split(' ', 1)
+                                    ondeck_date.text = date_part
+                                    # Remove microseconds if present
+                                    if '.' in time_part:
+                                        time_part = time_part.split('.')[0]
+                                    ondeck_time.text = time_part
+                                else:
+                                    # Just a time - use fire date and check for day rollover
+                                    if '.' in timeout_str:
+                                        timeout_str = timeout_str.split('.')[0]
+                                    ondeck_time.text = timeout_str
+
+                                    # Check if we need to add a day (if timeout < touch_time, assume next day)
+                                    if base_date_str and 'touch_time' in record_data and record_data['touch_time']:
+                                        try:
+                                            from datetime import datetime, timedelta
+                                            touch_time_str = str(record_data['touch_time'])
+                                            if '.' in touch_time_str:
+                                                touch_time_str = touch_time_str.split('.')[0]
+
+                                            # Compare times (HH:MM:SS format)
+                                            touch_parts = touch_time_str.split(':')
+                                            timeout_parts = timeout_str.split(':')
+
+                                            if len(touch_parts) >= 2 and len(timeout_parts) >= 2:
+                                                touch_hours = int(touch_parts[0])
+                                                touch_mins = int(touch_parts[1])
+                                                timeout_hours = int(timeout_parts[0])
+                                                timeout_mins = int(timeout_parts[1])
+
+                                                # If timeout is earlier than touch time, it's probably next day
+                                                if (timeout_hours < touch_hours) or (timeout_hours == touch_hours and timeout_mins < touch_mins):
+                                                    # Parse the date and add one day
+                                                    # Handle various date formats (MM/DD/YYYY or YYYY-MM-DD)
+                                                    if '/' in base_date_str:
+                                                        date_obj = datetime.strptime(base_date_str, '%m/%d/%Y')
+                                                    else:
+                                                        date_obj = datetime.strptime(base_date_str, '%Y-%m-%d')
+                                                    next_day = date_obj + timedelta(days=1)
+                                                    # Format back to same format as input
+                                                    if '/' in base_date_str:
+                                                        ondeck_date.text = next_day.strftime('%m/%d/%Y')
+                                                    else:
+                                                        ondeck_date.text = next_day.strftime('%Y-%m-%d')
+                                                else:
+                                                    ondeck_date.text = base_date_str
+                                            else:
+                                                ondeck_date.text = base_date_str
+                                        except:
+                                            ondeck_date.text = base_date_str
+                                    else:
+                                        ondeck_date.text = base_date_str
+
+                            # Clock time - use fire date and Inst. Time from timing data
+                            clock_elem = ET.SubElement(inst_elem, "clock")
+                            clock_date = ET.SubElement(clock_elem, "date")
+                            clock_date.text = base_date_str  # Use fire date
+                            clock_time = ET.SubElement(clock_elem, "time")
+                            if timing_info.get('instrument_time'):
+                                # Remove microseconds from time format
+                                time_str = str(timing_info['instrument_time'])
+                                if '.' in time_str:
+                                    time_str = time_str.split('.')[0]
+                                clock_time.text = time_str
+
+                            # UTC time - use fire date and Actual Time from timing data
+                            utc_elem = ET.SubElement(inst_elem, "utc")
+                            utc_date = ET.SubElement(utc_elem, "date")
+                            utc_date.text = base_date_str  # Use fire date
+                            utc_time = ET.SubElement(utc_elem, "time")
+                            if timing_info.get('gmt_time'):
+                                # Remove microseconds from time format
+                                time_str = str(timing_info['gmt_time'])
+                                if '.' in time_str:
+                                    time_str = time_str.split('.')[0]
+                                utc_time.text = time_str
+
+                            # Condition
+                            condition_elem = ET.SubElement(inst_elem, "condition")
+                            condition_elem.text = str(inst.get('condition', ''))
+
+                            count_elem = ET.SubElement(inst_elem, "count")
+                            fname_elem = ET.SubElement(inst_elem, "fname")
+                        else:
+                            # Add timing elements - use timeout field for ondeck time if no clock error data
+                            ondeck_elem = ET.SubElement(inst_elem, "ondeck")
+                            ondeck_date = ET.SubElement(ondeck_elem, "date")
+                            ondeck_time = ET.SubElement(ondeck_elem, "time")
+
+                            # Use release fire date as base date
+                            base_date_str = str(record_data.get('relfiredate', ''))
+
+                            # Check for date_on_deck and time_on_deck fields first
+                            if 'date_on_deck' in record_data and record_data['date_on_deck']:
+                                ondeck_date.text = str(record_data['date_on_deck'])
+                            if 'time_on_deck' in record_data and record_data['time_on_deck']:
+                                time_str = str(record_data['time_on_deck'])
+                                if '.' in time_str:
+                                    time_str = time_str.split('.')[0]
+                                ondeck_time.text = time_str
+                            elif inst and inst.get('timeout'):
+                                timeout_str = str(inst['timeout'])
+                                # If timeout contains date and time, split them
+                                if ' ' in timeout_str:
+                                    date_part, time_part = timeout_str.split(' ', 1)
+                                    ondeck_date.text = date_part
+                                    # Remove microseconds if present
+                                    if '.' in time_part:
+                                        time_part = time_part.split('.')[0]
+                                    ondeck_time.text = time_part
+                                else:
+                                    # Just a time - use fire date and check for day rollover
+                                    if '.' in timeout_str:
+                                        timeout_str = timeout_str.split('.')[0]
+                                    ondeck_time.text = timeout_str
+
+                                    # Check if we need to add a day (if timeout < touch_time, assume next day)
+                                    if base_date_str and 'touch_time' in record_data and record_data['touch_time']:
+                                        try:
+                                            from datetime import datetime, timedelta
+                                            touch_time_str = str(record_data['touch_time'])
+                                            if '.' in touch_time_str:
+                                                touch_time_str = touch_time_str.split('.')[0]
+
+                                            # Compare times (HH:MM:SS format)
+                                            touch_parts = touch_time_str.split(':')
+                                            timeout_parts = timeout_str.split(':')
+
+                                            if len(touch_parts) >= 2 and len(timeout_parts) >= 2:
+                                                touch_hours = int(touch_parts[0])
+                                                touch_mins = int(touch_parts[1])
+                                                timeout_hours = int(timeout_parts[0])
+                                                timeout_mins = int(timeout_parts[1])
+
+                                                # If timeout is earlier than touch time, it's probably next day
+                                                if (timeout_hours < touch_hours) or (timeout_hours == touch_hours and timeout_mins < touch_mins):
+                                                    # Parse the date and add one day
+                                                    # Handle various date formats (MM/DD/YYYY or YYYY-MM-DD)
+                                                    if '/' in base_date_str:
+                                                        date_obj = datetime.strptime(base_date_str, '%m/%d/%Y')
+                                                    else:
+                                                        date_obj = datetime.strptime(base_date_str, '%Y-%m-%d')
+                                                    next_day = date_obj + timedelta(days=1)
+                                                    # Format back to same format as input
+                                                    if '/' in base_date_str:
+                                                        ondeck_date.text = next_day.strftime('%m/%d/%Y')
+                                                    else:
+                                                        ondeck_date.text = next_day.strftime('%Y-%m-%d')
+                                                else:
+                                                    ondeck_date.text = base_date_str
+                                            else:
+                                                ondeck_date.text = base_date_str
+                                        except:
+                                            ondeck_date.text = base_date_str
+                                    else:
+                                        ondeck_date.text = base_date_str
+
+                            clock_elem = ET.SubElement(inst_elem, "clock")
+                            clock_date = ET.SubElement(clock_elem, "date")
+                            clock_date.text = base_date_str  # Use fire date
+                            clock_time = ET.SubElement(clock_elem, "time")
+
+                            utc_elem = ET.SubElement(inst_elem, "utc")
+                            utc_date = ET.SubElement(utc_elem, "date")
+                            utc_date.text = base_date_str  # Use fire date
+                            utc_time = ET.SubElement(utc_elem, "time")
+
+                            condition_elem = ET.SubElement(inst_elem, "condition")
+                            condition_elem.text = str(inst.get('condition', ''))
+
+                            count_elem = ET.SubElement(inst_elem, "count")
+                            fname_elem = ET.SubElement(inst_elem, "fname")
         except:
             pass
 
-    # Nylon Information
-    nylon_info = ET.SubElement(root, "nylon_recovered")
-    for i in range(10):
-        nylon_item = {}
-        for field in ['spool', 'sn', 'length', 'condition']:
-            key = f'nylon_{field}_{i}'
-            if key in record_data and record_data[key]:
-                nylon_item[field] = record_data[key]
+    # Release Information - add two release elements
+    # Release 1
+    release1_elem = ET.SubElement(root, "release")
+    serial1_elem = ET.SubElement(release1_elem, "serial")
+    if 'rel_sn_1' in record_data and record_data['rel_sn_1']:
+        # Remove .0 from float values
+        rel_sn_1 = str(record_data['rel_sn_1'])
+        if rel_sn_1.endswith('.0'):
+            rel_sn_1 = rel_sn_1[:-2]
+        serial1_elem.text = rel_sn_1
+    recovered1_elem = ET.SubElement(release1_elem, "recovered")
+    if 'a2_rec' in record_data and record_data['a2_rec']:
+        # Check if the value indicates recovered
+        a2_rec_val = str(record_data['a2_rec']).lower()
+        if 'rec' in a2_rec_val or 'yes' in a2_rec_val:
+            recovered1_elem.text = "Yes"
+        else:
+            recovered1_elem.text = "No"
+    elif 'rel_1_rec' in record_data and record_data['rel_1_rec']:
+        recovered1_elem.text = str(record_data['rel_1_rec'])
+    fired1_elem = ET.SubElement(release1_elem, "fired")
+    fired1_date = ET.SubElement(fired1_elem, "date")
+    fired1_time = ET.SubElement(fired1_elem, "time")
+    # Use relfiredate for the date if available
+    if 'relfiredate' in record_data and record_data['relfiredate']:
+        fired1_date.text = str(record_data['relfiredate'])
+    # Use touch_time for the fire time
+    if 'touch_time' in record_data and record_data['touch_time']:
+        time_str = str(record_data['touch_time'])
+        if '.' in time_str:
+            time_str = time_str.split('.')[0]
+        fired1_time.text = time_str
 
-        if nylon_item:
-            nylon_elem = ET.SubElement(nylon_info, f"nylon_{i}")
-            for key, value in nylon_item.items():
-                elem = ET.SubElement(nylon_elem, key)
-                elem.text = str(value)
-
-    # Hardware Information
-    hardware_info = ET.SubElement(root, "hardware")
-    for field in ['buoy_hardware_sn', 'buoy_hardware_condition', 'buoy_top_section_sn',
-                  'buoy_glass_balls', 'wire_hardware_sn', 'wire_hardware_condition',
-                  'wire_top_section_sn', 'wire_glass_balls']:
-        if field in record_data and record_data[field]:
-            elem = ET.SubElement(hardware_info, field)
-            elem.text = str(record_data[field])
-
-    # Tube Information
-    tube_info = ET.SubElement(root, "tube_information")
-    for field in ['battery_logic', 'battery_transmit', 'tube_date', 'tube_actual_time',
-                  'tube_inst_time', 'tube_clock_error']:
-        if field in record_data and record_data[field]:
-            elem = ET.SubElement(tube_info, field)
-            elem.text = str(record_data[field])
-
-    # Release Information
-    release_info = ET.SubElement(root, "release_information")
-    for field in ['rel_type_1', 'rel_sn_1', 'rel_1_rec', 'rel_type_2', 'rel_sn_2', 'rel_2_rec',
-                  'release1_release', 'release1_disable', 'release1_enable',
-                  'release2_release', 'release2_disable', 'release2_enable', 'release_comments']:
-        if field in record_data and record_data[field]:
-            elem = ET.SubElement(release_info, field)
-            elem.text = str(record_data[field])
-
-    # Recovery Problems or Comments
-    if 'recovery_problems' in record_data and record_data['recovery_problems']:
-        recovery_problems_elem = ET.SubElement(root, "recovery_problems")
-        recovery_problems_elem.text = str(record_data['recovery_problems'])
-    elif 'recprobcomments' in record_data and record_data['recprobcomments']:
-        recovery_problems_elem = ET.SubElement(root, "recovery_problems")
-        recovery_problems_elem.text = str(record_data['recprobcomments'])
-
-    # Subsurface Clock Errors
-    if 'subsurface_clock_errors' in record_data:
-        try:
-            import json
-            clock_error_data = record_data['subsurface_clock_errors']
-            if isinstance(clock_error_data, str):
-                clock_error_data = json.loads(clock_error_data)
-
-            clock_errors_elem = ET.SubElement(root, "subsurface_clock_errors")
-            if isinstance(clock_error_data, list):
-                for idx, error in enumerate(clock_error_data):
-                    error_elem = ET.SubElement(clock_errors_elem, f"clock_error_{idx}")
-                    for key, value in error.items():
-                        if value:
-                            field_elem = ET.SubElement(error_elem, key)
-                            field_elem.text = str(value)
-        except:
-            pass
+    # Release 2
+    release2_elem = ET.SubElement(root, "release")
+    serial2_elem = ET.SubElement(release2_elem, "serial")
+    if 'rel_sn_2' in record_data and record_data['rel_sn_2']:
+        # Remove .0 from float values
+        rel_sn_2 = str(record_data['rel_sn_2'])
+        if rel_sn_2.endswith('.0'):
+            rel_sn_2 = rel_sn_2[:-2]
+        serial2_elem.text = rel_sn_2
+    recovered2_elem = ET.SubElement(release2_elem, "recovered")
+    if 'rel_2_rec' in record_data and record_data['rel_2_rec']:
+        recovered2_elem.text = str(record_data['rel_2_rec'])
+    fired2_elem = ET.SubElement(release2_elem, "fired")
+    fired2_date = ET.SubElement(fired2_elem, "date")
+    fired2_time = ET.SubElement(fired2_elem, "time")
+    # Only set fire date and time for release 2 if it actually has a serial number
+    if 'rel_sn_2' in record_data and record_data['rel_sn_2']:
+        if 'relfiredate' in record_data and record_data['relfiredate']:
+            fired2_date.text = str(record_data['relfiredate'])
+        if 'touch_time' in record_data and record_data['touch_time']:
+            time_str = str(record_data['touch_time'])
+            if '.' in time_str:
+                time_str = time_str.split('.')[0]
+            fired2_time.text = time_str
 
     # Pretty print the XML
     xml_str = ET.tostring(root, encoding='unicode')
