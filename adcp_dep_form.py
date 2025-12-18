@@ -9,6 +9,235 @@ import math
 # Database configuration
 DB_PATH = '/Users/lake/Github/Cruise_Logs/Cruise_Logs.db'
 
+def get_spool_info(spool_sn):
+    """Look up spool information from spool inventory table."""
+    conn = get_db_connection()
+    try:
+        # Query spool inventory table
+        query = """
+            SELECT serial_number, length, status, notes, year, yes_flag
+            FROM spool_inventory
+            WHERE serial_number = ?
+        """
+        cursor = conn.cursor()
+        cursor.execute(query, [spool_sn])
+        row = cursor.fetchone()
+
+        if row:
+            return {
+                'serial': row['serial_number'],
+                'length': row['length'],
+                'status': row['status'] if row['status'] else 'Active',
+                'notes': row['notes'] if row['notes'] else '',
+                'year': row['year'] if row['year'] else 'Unknown',
+                'ev50': row['yes_flag'] if row['yes_flag'] else ''
+            }
+        return None
+    except Exception as e:
+        print(f"Error looking up spool: {e}")
+        return None
+    finally:
+        conn.close()
+
+def find_spool_in_deployments(spool_sn):
+    """Find where a spool is used in deployments by checking both JSON and flat table columns."""
+    conn = get_db_connection()
+    try:
+        # Trim and handle the spool serial number
+        spool_sn = str(spool_sn).strip() if spool_sn else ""
+
+        if not spool_sn:
+            return []
+
+        results = []
+
+        # First check the JSON normalized table
+        try:
+            query_json = """
+                SELECT id, mooringid, site, deployment_info, nylon_spools, depth
+                FROM deployments_normalized
+                WHERE nylon_spools IS NOT NULL
+            """
+
+            cursor = conn.cursor()
+            cursor.execute(query_json)
+
+            for row in cursor.fetchall():
+                try:
+                    # Parse the nylon_spools JSON
+                    nylon_data = json.loads(row['nylon_spools']) if row['nylon_spools'] else {}
+
+                    # Parse deployment_info for date
+                    deployment_info = json.loads(row['deployment_info']) if row['deployment_info'] else {}
+                    dep_date = deployment_info.get('dep_date', '')
+
+                    # Check each spool in the nylon_spools data
+                    for spool_key, spool_info in nylon_data.items():
+                        if isinstance(spool_info, dict) and spool_info.get('sn', '').strip().upper() == spool_sn.upper():
+                            results.append({
+                                'mooringid': row['mooringid'],
+                                'site': row['site'],
+                                'dep_date': dep_date,
+                                'depth': row['depth'],
+                                'position': spool_key.replace('_', ' #').title(),
+                                'length': spool_info.get('length', '')
+                            })
+                except json.JSONDecodeError:
+                    continue
+        except Exception as e:
+            print(f"Error checking JSON deployments: {e}")
+
+        # Also check the original flat table for historical data
+        try:
+            query_flat = """
+                SELECT mooringid, site, dep_date, corr_depth,
+                    CASE
+                        WHEN UPPER(nylon1sn) = UPPER(?) THEN 'Spool #1'
+                        WHEN UPPER(nylon2sn) = UPPER(?) THEN 'Spool #2'
+                        WHEN UPPER(nylon3sn) = UPPER(?) THEN 'Spool #3'
+                        WHEN UPPER(nylon4sn) = UPPER(?) THEN 'Spool #4'
+                        WHEN UPPER(nylon5sn) = UPPER(?) THEN 'Spool #5'
+                        WHEN UPPER(nylon6sn) = UPPER(?) THEN 'Spool #6'
+                        WHEN UPPER(nylon7sn) = UPPER(?) THEN 'Spool #7'
+                        WHEN UPPER(nylon8sn) = UPPER(?) THEN 'Spool #8'
+                        WHEN UPPER(nylon9sn) = UPPER(?) THEN 'Spool #9'
+                        WHEN UPPER(nylon10sn) = UPPER(?) THEN 'Spool #10'
+                    END as spool_position,
+                    nylon1ln, nylon2ln, nylon3ln, nylon4ln, nylon5ln,
+                    nylon6ln, nylon7ln, nylon8ln, nylon9ln, nylon10ln,
+                    nylon1sn, nylon2sn, nylon3sn, nylon4sn, nylon5sn,
+                    nylon6sn, nylon7sn, nylon8sn, nylon9sn, nylon10sn
+                FROM deployments
+                WHERE UPPER(nylon1sn) = UPPER(?)
+                   OR UPPER(nylon2sn) = UPPER(?)
+                   OR UPPER(nylon3sn) = UPPER(?)
+                   OR UPPER(nylon4sn) = UPPER(?)
+                   OR UPPER(nylon5sn) = UPPER(?)
+                   OR UPPER(nylon6sn) = UPPER(?)
+                   OR UPPER(nylon7sn) = UPPER(?)
+                   OR UPPER(nylon8sn) = UPPER(?)
+                   OR UPPER(nylon9sn) = UPPER(?)
+                   OR UPPER(nylon10sn) = UPPER(?)
+                ORDER BY dep_date DESC
+            """
+
+            # Execute with the spool_sn for all 20 parameters
+            params = [spool_sn] * 20  # 10 for CASE statement, 10 for WHERE clause
+            cursor.execute(query_flat, params)
+
+            for row in cursor.fetchall():
+                # Get the length from the corresponding length column
+                spool_pos = row['spool_position']
+                if spool_pos:
+                    # Extract spool number from position string
+                    spool_num = int(spool_pos.split('#')[1])
+                    length = row[f'nylon{spool_num}ln']
+                else:
+                    length = None
+
+                # Check if this deployment is already in results from JSON table
+                existing = False
+                for existing_result in results:
+                    if (existing_result['mooringid'] == row['mooringid'] and
+                        existing_result['dep_date'] == row['dep_date']):
+                        existing = True
+                        break
+
+                if not existing:
+                    results.append({
+                        'mooringid': row['mooringid'],
+                        'site': row['site'],
+                        'dep_date': row['dep_date'],
+                        'depth': row['corr_depth'],
+                        'position': spool_pos,
+                        'length': length
+                    })
+        except Exception as e:
+            print(f"Error checking flat table deployments: {e}")
+
+        # Sort by date (most recent first)
+        results.sort(key=lambda x: x['dep_date'] or '', reverse=True)
+        return results
+    except Exception as e:
+        print(f"Error finding spool in deployments: {e}")
+        return []
+    finally:
+        conn.close()
+
+def get_all_spool_serials():
+    """Get all spool serial numbers from inventory for dropdown."""
+    conn = get_db_connection()
+    try:
+        query = "SELECT DISTINCT serial_number FROM spool_inventory WHERE serial_number IS NOT NULL ORDER BY serial_number"
+        cursor = conn.cursor()
+        cursor.execute(query)
+        return [row[0] for row in cursor.fetchall()]
+    except Exception as e:
+        print(f"Error fetching spool serials: {e}")
+        return []
+    finally:
+        conn.close()
+
+def search_spools_advanced(serial_pattern=None, min_length=None, max_length=None,
+                          status=None, year=None, notes_pattern=None, ev50=None):
+    """Search spools based on multiple criteria."""
+    conn = get_db_connection()
+    try:
+        # Build query with filters
+        query = "SELECT serial_number, length, status, notes, year, yes_flag FROM spool_inventory WHERE 1=1"
+        params = []
+
+        if serial_pattern:
+            query += " AND serial_number LIKE ?"
+            params.append(f"%{serial_pattern}%")
+
+        if min_length is not None:
+            query += " AND length >= ?"
+            params.append(min_length)
+
+        if max_length is not None:
+            query += " AND length <= ?"
+            params.append(max_length)
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+
+        if year:
+            query += " AND year = ?"
+            params.append(year)
+
+        if notes_pattern:
+            query += " AND notes LIKE ?"
+            params.append(f"%{notes_pattern}%")
+
+        if ev50:
+            query += " AND yes_flag = ?"
+            params.append(ev50)
+
+        query += " ORDER BY serial_number"
+
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+
+        results = []
+        for row in cursor.fetchall():
+            results.append({
+                'serial': row['serial_number'],
+                'length': row['length'],
+                'status': row['status'],
+                'notes': row['notes'],
+                'year': row['year'],
+                'ev50': row['yes_flag'] if row['yes_flag'] else ''
+            })
+
+        return results
+    except Exception as e:
+        print(f"Error searching spools: {e}")
+        return []
+    finally:
+        conn.close()
+
 def get_db_connection():
     """Create a database connection."""
     conn = sqlite3.connect(DB_PATH)
@@ -149,8 +378,8 @@ def save_deployment(record_id, form_data):
         anchor_drop = {
             "anchor_drop_date": form_data.get('anchor_drop_date', ''),
             "anchor_drop_time": form_data.get('anchor_drop_time', ''),
-            "anchor_drop_lat": form_data.get('anchor_drop_lat', ''),
-            "anchor_drop_long": form_data.get('anchor_drop_long', ''),
+            "anchor_drop_lat": form_data.get('anchor_drop_latitude', ''),
+            "anchor_drop_long": form_data.get('anchor_drop_longitude', ''),
             "anchor_drop_depth": form_data.get('anchor_drop_depth', ''),
             "anchor_weight": form_data.get('anchor_weight', '')
         }
@@ -167,8 +396,8 @@ def save_deployment(record_id, form_data):
             "latitude": form_data.get('latitude', ''),
             "longitude": form_data.get('longitude', ''),
             "location_source": form_data.get('location_source', ''),
-            "workboat_lat": form_data.get('workboat_lat', ''),
-            "workboat_lon": form_data.get('workboat_lon', ''),
+            "workboat_lat": form_data.get('flyby_latitude', ''),
+            "workboat_lon": form_data.get('flyby_longitude', ''),
             "bottom_depth": form_data.get('bottom_depth', ''),
             "target_bottom_depth": form_data.get('target_bottom_depth', ''),
             "intended_xducer_depth": form_data.get('intended_xducer_depth', ''),
@@ -188,10 +417,13 @@ def save_deployment(record_id, form_data):
             "total_length": form_data.get('total_length', ''),
             "total_instruments": form_data.get('total_instruments', ''),
             "mooring_line_length": form_data.get('mooring_line_length', ''),
-            "mtpr_turn_on": form_data.get('mtpr_turn_on', ''),
-            "mtpr_on_ball_set_to_adcp_heads": form_data.get('mtpr_on_ball_set_to_adcp_heads', ''),
+            "mtpr_turn_on": form_data.get('mtpr_turn_on_datetime', ''),
+            "mtpr_on_ball_set_to_adcp_heads": form_data.get('measured_distance_mtpr', ''),
             "seacat_on": form_data.get('seacat_on', ''),
-            "obsolete_argos_dep": form_data.get('obsolete_argos_dep', '')
+            "obsolete_argos_dep": form_data.get('argos_beacon_usage', ''),
+            "total_kevlar_length": form_data.get('total_kevlar_length', ''),
+            "historical_hardware_length": form_data.get('historical_hardware_length', ''),
+            "deployment_problems": form_data.get('comments', '')
         }
 
         # SECTION 3: DEPTH INFORMATION
@@ -202,11 +434,11 @@ def save_deployment(record_id, form_data):
             "corrected_depth": form_data.get('corrected_depth', ''),
             "flyby_method": form_data.get('flyby_method', ''),
             "flyby_corrected_depth": form_data.get('flyby_corrected_depth', ''),
-            "req_adcp_head_depth": form_data.get('req_adcp_head_depth', ''),
-            "bottom_depth": form_data.get('bottom_depth', ''),
             "nylon_below_float_ball": form_data.get('nylon_below_float_ball', ''),
             "nylon_below_release": form_data.get('nylon_below_release', ''),
-            "instrument_hardware_length": form_data.get('instrument_hardware_length', '')
+            "instrument_hardware_length": form_data.get('instrument_hardware_length', ''),
+            "depth_correction": form_data.get('anchor_depth_correction', ''),
+            "corrected_depth": form_data.get('anchor_corrected_depth', '')
         }
 
         # SECTION 5: PRIMARY MOORING LINE & SECTION 6: SECONDARY MOORING LINES
@@ -231,7 +463,8 @@ def save_deployment(record_id, form_data):
             "line6_type": form_data.get('line6_type', ''),
             "line7_sn": form_data.get('line7_sn', ''),
             "line7_len": form_data.get('line7_len', ''),
-            "line7_type": form_data.get('line7_type', '')
+            "line7_type": form_data.get('line7_type', ''),
+            "actual_nylon_cut": form_data.get('actual_nylon_cut', '')
         }
 
         # SECTION 10-17: SENSOR DETAILS
@@ -285,6 +518,10 @@ def save_deployment(record_id, form_data):
             "btm_rel_new": form_data.get('btm_rel_new', ''),
             "btm_rel_2nd": form_data.get('btm_rel_2nd', ''),
             "btm_rel_rebatt": form_data.get('btm_rel_rebatt', ''),
+            "top_type": form_data.get('top_type', ''),
+            "rel1_sn": form_data.get('rel1_sn', ''),
+            "btm_type": form_data.get('btm_type', ''),
+            "rel2_sn": form_data.get('rel2_sn', ''),
             "rel8_toprelsn_cmd_1a_code_function_reply": form_data.get('rel8_toprelsn_cmd_1a_code_function_reply', ''),
             "rel8_toprelsn_cmd_2b_code_function_reply": form_data.get('rel8_toprelsn_cmd_2b_code_function_reply', ''),
             "rel8_toprelsn_cmd_3c_code_function_reply": form_data.get('rel8_toprelsn_cmd_3c_code_function_reply', ''),
@@ -384,7 +621,7 @@ def main():
         page_title="Subsurface ADCP Deployment Log",
         page_icon="🌊",
         layout="wide",
-        initial_sidebar_state="collapsed"
+        initial_sidebar_state="auto"
     )
 
     # Custom CSS for better form styling
@@ -418,6 +655,8 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
+
+
     # Main title
     st.title("Subsurface ADCP Deployment Log")
 
@@ -432,10 +671,88 @@ def main():
         st.session_state.mode = "Search/Edit"
     if 'selected_deployment' not in st.session_state:
         st.session_state.selected_deployment = None
+    if 'copied_nylon_cut' not in st.session_state:
+        st.session_state.copied_nylon_cut = None
 
     # Mode selection
     mode = st.radio("Mode", ["Search/Edit", "Add New"], key="mode_selector", horizontal=True)
     st.session_state.mode = mode
+
+    # Sidebar - Tools for Add New mode (only in Add New mode)
+    if mode == "Add New":
+        with st.sidebar:
+            st.markdown("## 🎯 Nylon Cut Calculator")
+            st.markdown("**Target: ADCP Head at 300m**")
+            st.markdown("---")
+
+            # Helper function for sidebar calculations
+            def safe_float_sidebar(value):
+                try:
+                    return float(value) if value and str(value).strip() else 0.0
+                except (ValueError, TypeError):
+                    return 0.0
+
+            # Input fields for calculation
+            st.markdown("### Site Information")
+            sidebar_bottom_depth = st.number_input("Bottom Depth", value=4000.0, step=1.0, key="sidebar_bottom_depth")
+
+            st.markdown("### Mooring Components")
+            sidebar_total_length = st.number_input("Total Mooring Line Length", value=280.0, step=1.0, key="sidebar_total_length")
+            sidebar_nylon_below_float = st.number_input("Nylon Below Float Ball", value=50.0, step=1.0, key="sidebar_nylon_below_float")
+            sidebar_nylon_below_release = st.number_input("Nylon Below Release", value=50.0, step=1.0, key="sidebar_nylon_below_release")
+            sidebar_instrument_hardware = st.number_input("Instrument Hardware Length", value=0.0, step=1.0, key="sidebar_instrument_hardware")
+
+            st.markdown("---")
+            st.markdown("### Target Depth")
+            target_adcp_depth = st.number_input("Target ADCP Head Depth (below surface)", value=300.0, step=1.0, key="target_depth")
+
+            # Calculate required nylon cut length
+            # Distance from bottom to ADCP head position
+            distance_from_bottom = sidebar_bottom_depth - target_adcp_depth
+            # Required nylon cut = Distance from bottom - all other components
+            required_nylon_cut_unscaled = distance_from_bottom - sidebar_total_length - sidebar_nylon_below_float - sidebar_nylon_below_release - sidebar_instrument_hardware
+            required_nylon_cut = required_nylon_cut_unscaled * 0.94
+
+            st.markdown("---")
+            st.markdown("### 🎯 Result")
+            if required_nylon_cut > 0:
+                st.success(f"**Cut off {required_nylon_cut:.1f}m**")
+            else:
+                st.error(f"**Cut off {abs(required_nylon_cut):.1f}m (negative - need less hardware)**")
+
+            # Show calculation details and total mooring length
+            st.info(f"Distance from bottom to ADCP head: {distance_from_bottom:.1f}m")
+            total_mooring_length = sidebar_total_length + sidebar_nylon_below_float + sidebar_nylon_below_release + sidebar_instrument_hardware + max(0, required_nylon_cut_unscaled)
+            st.info(f"Total Mooring Length: {total_mooring_length:.1f}m")
+
+            # Verify calculation
+            actual_adcp_depth = sidebar_bottom_depth - total_mooring_length
+            if abs(actual_adcp_depth - target_adcp_depth) < 0.1:
+                st.success(f"✅ ADCP head will be at {actual_adcp_depth:.1f}m depth")
+            else:
+                st.warning(f"⚠️ ADCP head will actually be at {actual_adcp_depth:.1f}m depth")
+
+            st.markdown("---")
+
+            # Apply CSS to make button green
+            st.markdown("""
+            <style>
+            button[kind="secondary"] {
+                background-color: #28a745 !important;
+                color: white !important;
+                border-color: #28a745 !important;
+            }
+            button[kind="secondary"]:hover {
+                background-color: #218838 !important;
+                border-color: #218838 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            if st.button("📋 Copy Required Nylon Cut Length to Main Form", key="copy_nylon_button"):
+                st.session_state.copied_nylon_cut = required_nylon_cut
+                st.success(f"✅ Copied {required_nylon_cut:.1f}m to main form!")
+                st.rerun()
 
     # Get list of sites for dropdown
     available_sites = get_distinct_sites()
@@ -638,16 +955,76 @@ def main():
         default_line7_sn = mooring_line_details.get('line7_sn', '')
         default_line7_len = mooring_line_details.get('line7_len', '')
         default_line7_type = mooring_line_details.get('line7_type', '')
+        default_actual_nylon_cut = mooring_line_details.get('actual_nylon_cut', '')
 
         # Set depth and length defaults
-        default_req_adcp_head_depth = depth_info.get('req_adcp_head_depth', '')
-        default_bottom_depth = depth_info.get('bottom_depth', '')
+        default_req_adcp_head_depth = deployment_details.get('intended_xducer_depth', '')
+        default_bottom_depth = deployment_details.get('target_bottom_depth', '')
         default_nylon_below_float_ball = depth_info.get('nylon_below_float_ball') or "50"
         default_nylon_below_release = depth_info.get('nylon_below_release') or "50"
-        default_instrument_hardware_length = depth_info.get('instrument_hardware_length') or "12"
+        default_instrument_hardware_length = deployment_details.get('instrument_hardware_length', '')
+
+        # Release defaults for Search/Edit mode - use release_details variable directly
+        default_top_release_type = release_details.get('top_type', '')
+        default_top_release_sn = release_details.get('rel1_sn', '')
+        default_top_release_int_freq = release_details.get('rel8_toprelsn_interrogate_freq', '')
+        default_top_release_reply = release_details.get('rel8_toprelsn_reply_freq', '')
+        default_top_release_release = release_details.get('rel8_toprelsn_cmd_1a_code_function_reply', '')
+        default_top_release_disable = release_details.get('rel8_toprelsn_cmd_2b_code_function_reply', '')
+        default_top_release_enable = release_details.get('rel8_toprelsn_cmd_3c_code_function_reply', '')
+        default_top_release_new = release_details.get('top_rel_new', '')
+        default_top_release_2nd_dep = release_details.get('top_rel_2nd', '')
+        default_top_release_rebatteried = release_details.get('top_rel_rebatt', '')
+        default_bottom_release_type = release_details.get('btm_type', '')
+        default_bottom_release_sn = release_details.get('rel2_sn', '')
+        default_bottom_release_int_freq = release_details.get('rel8_btmrelsn_interrogate_freq', '')
+        default_bottom_release_reply = release_details.get('rel8_btmrelsn_reply_freq', '')
+        default_bottom_release_release = release_details.get('rel8_btmrelsn_cmd_1a_code_function_reply', '')
+        default_bottom_release_disable = release_details.get('rel8_btmrelsn_cmd_2b_code_function_reply', '')
+        default_bottom_release_enable = release_details.get('rel8_btmrelsn_cmd_3c_code_function_reply', '')
+        default_bottom_release_new = release_details.get('btm_rel_new', '')
+        default_bottom_release_2nd_dep = release_details.get('btm_rel_2nd', '')
+        default_bottom_release_rebatteried = release_details.get('btm_rel_rebatt', '')
+        default_ball_release_type = ""  # Ball releases don't have type field
+        default_ball_release_sn = ""  # Ball releases don't have S/N field
+        default_ball_release_int_freq = release_details.get('rel8_ballrelsn_interrogate_freq', '')
+        default_ball_release_reply = release_details.get('rel8_ballrelsn_reply_freq', '')
+        default_ball_release_release = release_details.get('rel8_ballrelsn_cmd_1a_code_function_reply', '')
+        default_ball_release_disable = release_details.get('rel8_ballrelsn_cmd_2b_code_function_reply', '')
+        default_ball_release_enable = release_details.get('rel8_ballrelsn_cmd_3c_code_function_reply', '')
+
+        # Anchor Drop defaults for Search/Edit mode
+        default_anchor_drop_date = anchor_drop.get('anchor_drop_date', '')
+        default_anchor_drop_time = anchor_drop.get('anchor_drop_time', '')
+        default_anchor_drop_latitude = anchor_drop.get('anchor_drop_lat', '')
+        default_anchor_drop_longitude = anchor_drop.get('anchor_drop_long', '')
+        default_anchor_drop_depth = anchor_drop.get('anchor_drop_depth', '')
+        default_anchor_weight = anchor_drop.get('anchor_weight', '')
+        default_anchor_depth_correction = depth_info.get('depth_correction', '')
+        default_anchor_corrected_depth = depth_info.get('corrected_depth', '')
+
+        # Fly By defaults for Search/Edit mode - get from deployment_details workboat coordinates
+        default_flyby_latitude = deployment_details.get('workboat_lat', '')
+        default_flyby_longitude = deployment_details.get('workboat_lon', '')
+        default_flyby_corrected_depth = depth_info.get('flyby_corrected_depth', '')
+        default_flyby_method = depth_info.get('flyby_method', '')
+
+        # Historical defaults for Search/Edit mode
+        default_adcp_xducer_depth = deployment_details.get('actual_xducer_depth_calculated', '')
+        default_measured_distance_mtpr = deployment_details.get('mtpr_on_ball_set_to_adcp_heads', '')
+        default_mtpr_turn_on_datetime = deployment_details.get('mtpr_turn_on', '')
+        default_argos_beacon_usage = deployment_details.get('obsolete_argos_dep', '')
+        default_hardware_length = deployment_details.get('historical_hardware_length', '')
+        default_kevlar_main_spool = deployment_details.get('kevlar_main_spool_length', '')
+        default_additional_kevlar = deployment_details.get('additional_kevlar_length', '')
+        default_total_kevlar_length = deployment_details.get('total_kevlar_length', '')
+        default_ball_set_rel_lat = deployment_details.get('latitude', '')
+        default_ball_set_rel_lon = deployment_details.get('longitude', '')
+        default_comments = deployment_details.get('deployment_problems', '')
 
     else:
-        # Defaults for Add New mode
+        # Defaults for Add New mode - initialize empty release_details
+        release_details = {}
         default_record_id = None
         default_mooring_id = ""
         default_site = ""
@@ -702,13 +1079,72 @@ def main():
         default_line7_sn = ""
         default_line7_len = ""
         default_line7_type = ""
+        default_actual_nylon_cut = ""
 
-        # Depth and length defaults for Add New
+        # Set depth and length defaults for Add New
         default_req_adcp_head_depth = ""
         default_bottom_depth = ""
         default_nylon_below_float_ball = "50"
         default_nylon_below_release = "50"
-        default_instrument_hardware_length = "12"
+        default_instrument_hardware_length = ""
+
+        # Release defaults for Add New mode
+        default_top_release_type = ""
+        default_top_release_sn = ""
+        default_top_release_int_freq = ""
+        default_top_release_reply = ""
+        default_top_release_release = ""
+        default_top_release_disable = ""
+        default_top_release_enable = ""
+        default_top_release_new = ""
+        default_top_release_2nd_dep = ""
+        default_top_release_rebatteried = ""
+        default_bottom_release_type = ""
+        default_bottom_release_sn = ""
+        default_bottom_release_int_freq = ""
+        default_bottom_release_reply = ""
+        default_bottom_release_release = ""
+        default_bottom_release_disable = ""
+        default_bottom_release_enable = ""
+        default_bottom_release_new = ""
+        default_bottom_release_2nd_dep = ""
+        default_bottom_release_rebatteried = ""
+        default_ball_release_type = ""  # Ball releases don't have type field
+        default_ball_release_sn = ""  # Ball releases don't have S/N field
+        default_ball_release_int_freq = ""
+        default_ball_release_reply = ""
+        default_ball_release_release = ""
+        default_ball_release_disable = ""
+        default_ball_release_enable = ""
+
+        # Anchor Drop defaults for Add New mode
+        default_anchor_drop_date = ""
+        default_anchor_drop_time = ""
+        default_anchor_drop_latitude = ""
+        default_anchor_drop_longitude = ""
+        default_anchor_drop_depth = ""
+        default_anchor_weight = ""
+        default_anchor_depth_correction = ""
+        default_anchor_corrected_depth = ""
+
+        # Fly By defaults for Add New mode
+        default_flyby_latitude = ""
+        default_flyby_longitude = ""
+        default_flyby_corrected_depth = ""
+        default_flyby_method = ""
+
+        # Historical defaults for Add New mode
+        default_adcp_xducer_depth = ""
+        default_measured_distance_mtpr = ""
+        default_mtpr_turn_on_datetime = ""
+        default_argos_beacon_usage = ""
+        default_hardware_length = ""
+        default_kevlar_main_spool = ""
+        default_additional_kevlar = ""
+        default_total_kevlar_length = ""
+        default_ball_set_rel_lat = ""
+        default_ball_set_rel_lon = ""
+        default_comments = ""
 
     # Create the form
     with st.form("deployment_form"):
@@ -954,6 +1390,21 @@ def main():
             with col_type:
                 line7_type = st.text_input("Line 7 Type", value=default_line7_type, key="line7_type", label_visibility="collapsed")
 
+            # Calculate total length
+            def safe_float(value):
+                try:
+                    return float(value) if value and str(value).strip() else 0.0
+                except (ValueError, TypeError):
+                    return 0.0
+
+            total_length = (safe_float(line1_len) + safe_float(line2_len) + safe_float(line3_len) +
+                          safe_float(line4_len) + safe_float(line5_len) + safe_float(line6_len) +
+                          safe_float(line7_len))
+
+            # Total row
+            st.markdown("---")
+            st.markdown(f"**Total Length: {total_length:.1f}**")
+
         # MIDDLE: VERTICAL DIVIDER
         with col_divider2:
             st.markdown('<div style="border-left: 2px solid #e0e0e0; height: 400px; margin-left: 50%;"></div>', unsafe_allow_html=True)
@@ -977,7 +1428,341 @@ def main():
             # Instrument and Hardware Length
             instrument_hardware_length = st.text_input("Instrument and Hardware Length", value=default_instrument_hardware_length, key="instrument_hardware_length")
 
+
+        # Calculate summary values after all inputs are defined
         st.markdown("---")
+        st.markdown("### Summary Calculations")
+
+        # Helper function for safe float conversion
+        def safe_float_calc(value):
+            try:
+                return float(value) if value and str(value).strip() else 0.0
+            except (ValueError, TypeError):
+                return 0.0
+
+        # Calculated Nylon Cut Length (x.94)
+        bottom_depth_val = safe_float_calc(bottom_depth)
+        nylon_below_float_ball_val = safe_float_calc(nylon_below_float_ball)
+        nylon_below_release_val = safe_float_calc(nylon_below_release)
+        instrument_hardware_length_val = safe_float_calc(instrument_hardware_length)
+        req_adcp_head_depth_val = safe_float_calc(req_adcp_head_depth)
+
+        calculated_nylon_cut = (bottom_depth_val - total_length - nylon_below_float_ball_val - nylon_below_release_val - instrument_hardware_length_val - req_adcp_head_depth_val) * 0.94
+        st.markdown(f"**Calculated Nylon Cut Length (x.94): {calculated_nylon_cut:.1f}**")
+
+        # Actual Nylon Cut Length (above release) - editable field
+        # Check if we have a copied value from sidebar
+        nylon_cut_value = default_actual_nylon_cut
+        if st.session_state.copied_nylon_cut is not None:
+            nylon_cut_value = str(round(st.session_state.copied_nylon_cut, 1))
+            # Clear the copied value after using it
+            st.session_state.copied_nylon_cut = None
+
+        actual_nylon_cut = st.text_input("**Actual Nylon Cut Length (above release)**", value=nylon_cut_value, key="actual_nylon_cut")
+
+        # Total Mooring Length - calculated field
+        actual_nylon_cut_val = safe_float_calc(actual_nylon_cut)
+        total_mooring_length = total_length + nylon_below_float_ball_val + nylon_below_release_val + instrument_hardware_length_val + actual_nylon_cut_val
+        st.markdown(f"**Total Mooring Length: {total_mooring_length:.1f}**")
+
+        # Display Actual Xducer Depth
+        if actual_xducer_depth_calculated:
+            actual_xducer_depth_val = safe_float_calc(actual_xducer_depth_calculated)
+            st.markdown(f"**Actual Xducer Depth: {actual_xducer_depth_val:.1f}m**")
+
+        st.markdown("---")
+
+        # Releases Section
+        st.subheader("Releases")
+
+        # Debug display (remove after testing)
+        if mode == "Search/Edit" and st.session_state.selected_deployment:
+            with st.expander("Debug: Release Details JSON"):
+                st.json(release_details)
+
+        # Create column headers
+        col_labels = st.columns([1, 1, 1.5, 1, 1, 1, 1, 1, 1, 1.2, 1.2])
+        col_labels[0].write("**Position**")
+        col_labels[1].write("**Type**")
+        col_labels[2].write("**S/N**")
+        col_labels[3].write("**Int. Freq.**")
+        col_labels[4].write("**Reply**")
+        col_labels[5].write("**Release**")
+        col_labels[6].write("**Disable**")
+        col_labels[7].write("**Enable**")
+        col_labels[8].write("**New**")
+        col_labels[9].write("**2nd Dep**")
+        col_labels[10].write("**Rebatteried?**")
+
+        # Top Release Row
+        col_top = st.columns([1, 1, 1.5, 1, 1, 1, 1, 1, 1, 1.2, 1.2])
+        col_top[0].write("Top")
+        top_type = col_top[1].text_input("", value=default_top_release_type, key="top_release_type", label_visibility="collapsed")
+        top_sn = col_top[2].text_input("", value=default_top_release_sn, key="top_release_sn", label_visibility="collapsed")
+        top_int_freq = col_top[3].text_input("", value=default_top_release_int_freq, key="top_release_int_freq", label_visibility="collapsed")
+        top_reply = col_top[4].text_input("", value=default_top_release_reply, key="top_release_reply", label_visibility="collapsed")
+        top_release = col_top[5].text_input("", value=default_top_release_release, key="top_release_release", label_visibility="collapsed")
+        top_disable = col_top[6].text_input("", value=default_top_release_disable, key="top_release_disable", label_visibility="collapsed")
+        top_enable = col_top[7].text_input("", value=default_top_release_enable, key="top_release_enable", label_visibility="collapsed")
+        top_new = col_top[8].selectbox("", options=["", "Yes", "No"], index=0 if not default_top_release_new else (1 if default_top_release_new == "Yes" else 2), key="top_release_new", label_visibility="collapsed")
+        top_2nd_dep = col_top[9].selectbox("", options=["", "Yes", "No"], index=0 if not default_top_release_2nd_dep else (1 if default_top_release_2nd_dep == "Yes" else 2), key="top_release_2nd_dep", label_visibility="collapsed")
+        top_rebatteried = col_top[10].selectbox("", options=["", "Yes", "No"], index=0 if not default_top_release_rebatteried else (1 if default_top_release_rebatteried == "Yes" else 2), key="top_release_rebatteried", label_visibility="collapsed")
+
+        # Bottom Release Row
+        col_bottom = st.columns([1, 1, 1.5, 1, 1, 1, 1, 1, 1, 1.2, 1.2])
+        col_bottom[0].write("Bottom")
+        bottom_type = col_bottom[1].text_input("", value=default_bottom_release_type, key="bottom_release_type", label_visibility="collapsed")
+        bottom_sn = col_bottom[2].text_input("", value=default_bottom_release_sn, key="bottom_release_sn", label_visibility="collapsed")
+        bottom_int_freq = col_bottom[3].text_input("", value=default_bottom_release_int_freq, key="bottom_release_int_freq", label_visibility="collapsed")
+        bottom_reply = col_bottom[4].text_input("", value=default_bottom_release_reply, key="bottom_release_reply", label_visibility="collapsed")
+        bottom_release = col_bottom[5].text_input("", value=default_bottom_release_release, key="bottom_release_release", label_visibility="collapsed")
+        bottom_disable = col_bottom[6].text_input("", value=default_bottom_release_disable, key="bottom_release_disable", label_visibility="collapsed")
+        bottom_enable = col_bottom[7].text_input("", value=default_bottom_release_enable, key="bottom_release_enable", label_visibility="collapsed")
+        bottom_new = col_bottom[8].selectbox("", options=["", "Yes", "No"], index=0 if not default_bottom_release_new else (1 if default_bottom_release_new == "Yes" else 2), key="bottom_release_new", label_visibility="collapsed")
+        bottom_2nd_dep = col_bottom[9].selectbox("", options=["", "Yes", "No"], index=0 if not default_bottom_release_2nd_dep else (1 if default_bottom_release_2nd_dep == "Yes" else 2), key="bottom_release_2nd_dep", label_visibility="collapsed")
+        bottom_rebatteried = col_bottom[10].selectbox("", options=["", "Yes", "No"], index=0 if not default_bottom_release_rebatteried else (1 if default_bottom_release_rebatteried == "Yes" else 2), key="bottom_release_rebatteried", label_visibility="collapsed")
+
+        st.markdown("---")
+
+        # Anchor Drop and Fly By Section
+        main_col1, divider_col, main_col2 = st.columns([5, 0.5, 5])
+
+        with main_col1:
+            st.subheader("Anchor Drop")
+
+            # Create compact 2-column layout within left column
+            anchor_left, anchor_right = st.columns(2)
+
+            with anchor_left:
+                st.write("**Date**")
+                anchor_drop_date = st.text_input("", value=default_anchor_drop_date, key="anchor_drop_date", label_visibility="collapsed")
+
+                st.write("**Latitude**")
+                anchor_drop_latitude = st.text_input("", value=default_anchor_drop_latitude, key="anchor_drop_latitude", label_visibility="collapsed")
+
+                st.write("**Depth**")
+                anchor_drop_depth = st.text_input("", value=default_anchor_drop_depth, key="anchor_drop_depth", label_visibility="collapsed")
+
+                st.write("**Depth Correction**")
+                anchor_depth_correction = st.text_input("", value=default_anchor_depth_correction, key="anchor_depth_correction", label_visibility="collapsed")
+
+            with anchor_right:
+                st.write("**Time**")
+                anchor_drop_time = st.text_input("", value=default_anchor_drop_time, key="anchor_drop_time", label_visibility="collapsed")
+
+                st.write("**Longitude**")
+                anchor_drop_longitude = st.text_input("", value=default_anchor_drop_longitude, key="anchor_drop_longitude", label_visibility="collapsed")
+
+                st.write("**Anchor Weight**")
+                anchor_weight = st.text_input("", value=default_anchor_weight, key="anchor_weight", label_visibility="collapsed")
+
+                st.write("**Corrected Depth**")
+                anchor_corrected_depth = st.text_input("", value=default_anchor_corrected_depth, key="anchor_corrected_depth", label_visibility="collapsed")
+
+        with divider_col:
+            st.markdown("""
+            <div style="height: 400px; border-left: 2px solid #e0e0e0; margin: 20px 0;"></div>
+            """, unsafe_allow_html=True)
+
+        with main_col2:
+            st.subheader("Fly By")
+
+            # Create 2-column layout for Fly By
+            flyby_left, flyby_right = st.columns(2)
+
+            with flyby_left:
+                st.write("**Latitude**")
+                flyby_latitude = st.text_input("", value=default_flyby_latitude, key="flyby_latitude", label_visibility="collapsed")
+
+                st.write("**Corrected Depth**")
+                flyby_corrected_depth = st.text_input("", value=default_flyby_corrected_depth, key="flyby_corrected_depth", label_visibility="collapsed")
+
+            with flyby_right:
+                st.write("**Longitude**")
+                flyby_longitude = st.text_input("", value=default_flyby_longitude, key="flyby_longitude", label_visibility="collapsed")
+
+                st.write("**Method Used**")
+                flyby_method_options = ["", "fatho", "triangulated"]
+                flyby_method_index = 0
+                if default_flyby_method in flyby_method_options:
+                    flyby_method_index = flyby_method_options.index(default_flyby_method)
+                flyby_method = st.selectbox("", options=flyby_method_options, index=flyby_method_index, key="flyby_method", label_visibility="collapsed")
+
+        st.markdown("---")
+
+        # Historical Section - Add styled container
+        st.markdown("""
+        <style>
+        .historical-container {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        with st.container():
+            st.markdown('<div class="historical-container">', unsafe_allow_html=True)
+            st.subheader("Historical")
+
+        # Row 1: ADCP Xducer Depth
+        hist_row1 = st.columns([3, 2])
+        with hist_row1[0]:
+            st.write("**ADCP Xducer Depth (obtained by ball-set MTPR)**")
+        with hist_row1[1]:
+            adcp_xducer_depth = st.text_input("ADCP Xducer Depth", value=default_adcp_xducer_depth, key="adcp_xducer_depth", label_visibility="collapsed")
+
+        # Row 2: Measured Distance
+        hist_row2 = st.columns([3, 2])
+        with hist_row2[0]:
+            st.write("**Measured Distance - MTPR On Ball Set To ADCP Head**")
+        with hist_row2[1]:
+            measured_distance_mtpr = st.text_input("Measured Distance MTPR", value=default_measured_distance_mtpr, key="measured_distance_mtpr", label_visibility="collapsed")
+
+        # Row 3: MTPR Turn on Time and Date
+        hist_row3 = st.columns([3, 2])
+        with hist_row3[0]:
+            st.write("**MTPR Turn on Time and Date**")
+        with hist_row3[1]:
+            mtpr_turn_on_datetime = st.text_input("MTPR Turn on Time and Date", value=default_mtpr_turn_on_datetime, key="mtpr_turn_on_datetime", label_visibility="collapsed")
+
+        # Row 4: Argos Beacon Deployment Usage
+        hist_row4 = st.columns([3, 2])
+        with hist_row4[0]:
+            st.write("**Argos Beacon Deployment Usage (before new battery)**")
+        with hist_row4[1]:
+            argos_usage_options = ["", "1st", "2nd", "3rd", "none"]
+            argos_usage_index = 0
+            if default_argos_beacon_usage in argos_usage_options:
+                argos_usage_index = argos_usage_options.index(default_argos_beacon_usage)
+            argos_beacon_usage = st.selectbox("Argos Beacon Usage", options=argos_usage_options, index=argos_usage_index, key="argos_beacon_usage", label_visibility="collapsed")
+
+        # Row 5: Hardware Length
+        hist_row5 = st.columns([3, 2])
+        with hist_row5[0]:
+            st.write("**Hardware Length**")
+        with hist_row5[1]:
+            hardware_length = st.text_input("Hardware Length", value=default_hardware_length, key="hardware_length", label_visibility="collapsed")
+
+        # Row 6: Kevlar Main Spool
+        hist_row6 = st.columns([3, 2])
+        with hist_row6[0]:
+            st.write("**Kevlar Main Spool (stretched length)**")
+        with hist_row6[1]:
+            kevlar_main_spool = st.text_input("Kevlar Main Spool", value=default_kevlar_main_spool, key="kevlar_main_spool", label_visibility="collapsed")
+
+        # Row 7: Additional Kevlar
+        hist_row7 = st.columns([3, 2])
+        with hist_row7[0]:
+            st.write("**Additional Kevlar (stretched length)**")
+        with hist_row7[1]:
+            additional_kevlar = st.text_input("Additional Kevlar", value=default_additional_kevlar, key="additional_kevlar", label_visibility="collapsed")
+
+        # Row 8: Total Kevlar Length - calculated field
+        hist_row8 = st.columns([3, 2])
+        with hist_row8[0]:
+            st.write("**Total Kevlar Length**")
+        with hist_row8[1]:
+            # Calculate total kevlar length
+            kevlar_main_val = safe_float_calc(kevlar_main_spool)
+            additional_kevlar_val = safe_float_calc(additional_kevlar)
+            calculated_total_kevlar = kevlar_main_val + additional_kevlar_val
+
+            # Show calculated value
+            if calculated_total_kevlar > 0:
+                total_kevlar_display = f"{calculated_total_kevlar:.1f}"
+            else:
+                total_kevlar_display = default_total_kevlar_length
+
+            total_kevlar_length = st.text_input("Total Kevlar Length", value=total_kevlar_display, key="total_kevlar_length", label_visibility="collapsed", disabled=True)
+
+        # Row 9: Ball set Release Coordinates
+        hist_row9 = st.columns([1, 1])
+        with hist_row9[0]:
+            st.write("**Ball set Rel. Lat.**")
+            ball_set_rel_lat = st.text_input("Ball set Rel. Lat.", value=default_ball_set_rel_lat, key="ball_set_rel_lat", label_visibility="collapsed")
+        with hist_row9[1]:
+            st.write("**Ball set Rel. Lon.**")
+            ball_set_rel_lon = st.text_input("Ball set Rel. Lon.", value=default_ball_set_rel_lon, key="ball_set_rel_lon", label_visibility="collapsed")
+
+        # Ball-Set Release subsection
+        st.markdown("##### Ball-Set Release")
+
+        # Create table-like header row
+        ball_release_header = st.columns([1.5, 1.5, 1.5, 1.5])
+        with ball_release_header[0]:
+            st.write("**Type**")
+        with ball_release_header[1]:
+            st.write("**Int. Freq**")
+        with ball_release_header[2]:
+            st.write("**Reply**")
+        with ball_release_header[3]:
+            st.write("**Release**")
+
+        # First data row
+        ball_release_row1 = st.columns([1.5, 1.5, 1.5, 1.5])
+        with ball_release_row1[0]:
+            ball_release_type = st.text_input("Ball Release Type", value=default_ball_release_type, key="ball_release_type", label_visibility="collapsed", disabled=True, placeholder="N/A")
+        with ball_release_row1[1]:
+            ball_release_int_freq = st.text_input("Ball Release Int. Freq", value=default_ball_release_int_freq, key="ball_release_int_freq", label_visibility="collapsed")
+        with ball_release_row1[2]:
+            ball_release_reply = st.text_input("Ball Release Reply", value=default_ball_release_reply, key="ball_release_reply", label_visibility="collapsed")
+        with ball_release_row1[3]:
+            ball_release_release = st.text_input("Ball Release Release", value=default_ball_release_release, key="ball_release_release", label_visibility="collapsed")
+
+        # Second data row
+        ball_release_row2 = st.columns([1.5, 1.5, 1.5, 1.5])
+        with ball_release_row2[0]:
+            st.write("**S/N**")
+        with ball_release_row2[1]:
+            st.write("")  # Empty cell
+        with ball_release_row2[2]:
+            st.write("")  # Empty cell
+        with ball_release_row2[3]:
+            st.write("**Disable**")
+
+        # Third data row
+        ball_release_row3 = st.columns([1.5, 1.5, 1.5, 1.5])
+        with ball_release_row3[0]:
+            ball_release_sn = st.text_input("Ball Release S/N", value=default_ball_release_sn, key="ball_release_sn", label_visibility="collapsed", disabled=True, placeholder="N/A")
+        with ball_release_row3[1]:
+            st.write("")  # Empty cell
+        with ball_release_row3[2]:
+            st.write("")  # Empty cell
+        with ball_release_row3[3]:
+            ball_release_disable = st.text_input("Ball Release Disable", value=default_ball_release_disable, key="ball_release_disable", label_visibility="collapsed")
+
+        # Fourth data row
+        ball_release_row4 = st.columns([1.5, 1.5, 1.5, 1.5])
+        with ball_release_row4[0]:
+            st.write("")  # Empty cell
+        with ball_release_row4[1]:
+            st.write("")  # Empty cell
+        with ball_release_row4[2]:
+            st.write("")  # Empty cell
+        with ball_release_row4[3]:
+            st.write("**Enable**")
+
+        # Fifth data row
+        ball_release_row5 = st.columns([1.5, 1.5, 1.5, 1.5])
+        with ball_release_row5[0]:
+            st.write("")  # Empty cell
+        with ball_release_row5[1]:
+            st.write("")  # Empty cell
+        with ball_release_row5[2]:
+            st.write("")  # Empty cell
+        with ball_release_row5[3]:
+            ball_release_enable = st.text_input("Ball Release Enable", value=default_ball_release_enable, key="ball_release_enable", label_visibility="collapsed")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # Comments Section
+        st.subheader("Comments")
+        comments = st.text_area("Comments", value=default_comments, height=600, key="comments", label_visibility="collapsed")
 
         # Form submission buttons
         col_button, col_spacer = st.columns([1, 11])
@@ -1040,11 +1825,60 @@ def main():
                 'line7_sn': line7_sn,
                 'line7_len': line7_len,
                 'line7_type': line7_type,
-                'req_adcp_head_depth': req_adcp_head_depth,
-                'bottom_depth': bottom_depth,
+                'actual_nylon_cut': actual_nylon_cut,
+                'intended_xducer_depth': req_adcp_head_depth,
+                'target_bottom_depth': bottom_depth,
                 'nylon_below_float_ball': nylon_below_float_ball,
                 'nylon_below_release': nylon_below_release,
                 'instrument_hardware_length': instrument_hardware_length,
+                'anchor_drop_date': anchor_drop_date,
+                'anchor_drop_time': anchor_drop_time,
+                'anchor_drop_latitude': anchor_drop_latitude,
+                'anchor_drop_longitude': anchor_drop_longitude,
+                'anchor_drop_depth': anchor_drop_depth,
+                'anchor_weight': anchor_weight,
+                'anchor_depth_correction': anchor_depth_correction,
+                'anchor_corrected_depth': anchor_corrected_depth,
+                'flyby_latitude': flyby_latitude,
+                'flyby_longitude': flyby_longitude,
+                'flyby_corrected_depth': flyby_corrected_depth,
+                'flyby_method': flyby_method,
+                'top_type': top_type,
+                'rel1_sn': top_sn,
+                'btm_type': bottom_type,
+                'rel2_sn': bottom_sn,
+                'top_rel_new': top_new,
+                'top_rel_2nd': top_2nd_dep,
+                'top_rel_rebatt': top_rebatteried,
+                'btm_rel_new': bottom_new,
+                'btm_rel_2nd': bottom_2nd_dep,
+                'btm_rel_rebatt': bottom_rebatteried,
+                'rel8_toprelsn_cmd_1a_code_function_reply': top_release,
+                'rel8_toprelsn_cmd_2b_code_function_reply': top_disable,
+                'rel8_toprelsn_cmd_3c_code_function_reply': top_enable,
+                'rel8_toprelsn_interrogate_freq': top_int_freq,
+                'rel8_toprelsn_reply_freq': top_reply,
+                'rel8_btmrelsn_cmd_1a_code_function_reply': bottom_release,
+                'rel8_btmrelsn_cmd_2b_code_function_reply': bottom_disable,
+                'rel8_btmrelsn_cmd_3c_code_function_reply': bottom_enable,
+                'rel8_btmrelsn_interrogate_freq': bottom_int_freq,
+                'rel8_btmrelsn_reply_freq': bottom_reply,
+                'rel8_ballrelsn_cmd_1a_code_function_reply': ball_release_release,
+                'rel8_ballrelsn_cmd_2b_code_function_reply': ball_release_disable,
+                'rel8_ballrelsn_cmd_3c_code_function_reply': ball_release_enable,
+                'rel8_ballrelsn_interrogate_freq': ball_release_int_freq,
+                'rel8_ballrelsn_reply_freq': ball_release_reply,
+                'adcp_xducer_depth': adcp_xducer_depth,
+                'measured_distance_mtpr': measured_distance_mtpr,
+                'mtpr_turn_on_datetime': mtpr_turn_on_datetime,
+                'argos_beacon_usage': argos_beacon_usage,
+                'historical_hardware_length': hardware_length,
+                'kevlar_main_spool': kevlar_main_spool,
+                'additional_kevlar': additional_kevlar,
+                'total_kevlar_length': total_kevlar_length,
+                'latitude': ball_set_rel_lat,
+                'longitude': ball_set_rel_lon,
+                'comments': comments
             }
 
             # Save record
@@ -1061,6 +1895,8 @@ def main():
                 st.session_state.selected_deployment = None
             else:
                 st.error(f"❌ Error saving deployment: {result}")
+
+
 
 if __name__ == '__main__':
     main()
