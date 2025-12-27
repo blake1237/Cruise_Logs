@@ -1497,30 +1497,30 @@ def main():
         # Top Release Row
         col_top = st.columns([1, 1, 1.5, 1, 1, 1, 1, 1, 1, 1.2, 1.2])
         col_top[0].write("Top")
-        top_type = col_top[1].text_input("", value=default_top_release_type, key="top_release_type", label_visibility="collapsed")
-        top_sn = col_top[2].text_input("", value=default_top_release_sn, key="top_release_sn", label_visibility="collapsed")
-        top_int_freq = col_top[3].text_input("", value=default_top_release_int_freq, key="top_release_int_freq", label_visibility="collapsed")
-        top_reply = col_top[4].text_input("", value=default_top_release_reply, key="top_release_reply", label_visibility="collapsed")
-        top_release = col_top[5].text_input("", value=default_top_release_release, key="top_release_release", label_visibility="collapsed")
-        top_disable = col_top[6].text_input("", value=default_top_release_disable, key="top_release_disable", label_visibility="collapsed")
-        top_enable = col_top[7].text_input("", value=default_top_release_enable, key="top_release_enable", label_visibility="collapsed")
-        top_new = col_top[8].selectbox("", options=["", "Yes", "No"], index=0 if not default_top_release_new else (1 if default_top_release_new == "Yes" else 2), key="top_release_new", label_visibility="collapsed")
-        top_2nd_dep = col_top[9].selectbox("", options=["", "Yes", "No"], index=0 if not default_top_release_2nd_dep else (1 if default_top_release_2nd_dep == "Yes" else 2), key="top_release_2nd_dep", label_visibility="collapsed")
-        top_rebatteried = col_top[10].selectbox("", options=["", "Yes", "No"], index=0 if not default_top_release_rebatteried else (1 if default_top_release_rebatteried == "Yes" else 2), key="top_release_rebatteried", label_visibility="collapsed")
+        top_type = col_top[1].text_input("Top Release Type", value=default_top_release_type, key="top_release_type", label_visibility="collapsed")
+        top_sn = col_top[2].text_input("Top Release S/N", value=default_top_release_sn, key="top_release_sn", label_visibility="collapsed")
+        top_int_freq = col_top[3].text_input("Top Release Int. Freq.", value=default_top_release_int_freq, key="top_release_int_freq", label_visibility="collapsed")
+        top_reply = col_top[4].text_input("Top Release Reply", value=default_top_release_reply, key="top_release_reply", label_visibility="collapsed")
+        top_release = col_top[5].text_input("Top Release Release", value=default_top_release_release, key="top_release_release", label_visibility="collapsed")
+        top_disable = col_top[6].text_input("Top Release Disable", value=default_top_release_disable, key="top_release_disable", label_visibility="collapsed")
+        top_enable = col_top[7].text_input("Top Release Enable", value=default_top_release_enable, key="top_release_enable", label_visibility="collapsed")
+        top_new = col_top[8].selectbox("Top Release New", options=["", "Yes", "No"], index=0 if not default_top_release_new else (1 if default_top_release_new == "Yes" else 2), key="top_release_new", label_visibility="collapsed")
+        top_2nd_dep = col_top[9].selectbox("Top Release 2nd Dep", options=["", "Yes", "No"], index=0 if not default_top_release_2nd_dep else (1 if default_top_release_2nd_dep == "Yes" else 2), key="top_release_2nd_dep", label_visibility="collapsed")
+        top_rebatteried = col_top[10].selectbox("Top Release Rebatteried", options=["", "Yes", "No"], index=0 if not default_top_release_rebatteried else (1 if default_top_release_rebatteried == "Yes" else 2), key="top_release_rebatteried", label_visibility="collapsed")
 
         # Bottom Release Row
         col_bottom = st.columns([1, 1, 1.5, 1, 1, 1, 1, 1, 1, 1.2, 1.2])
         col_bottom[0].write("Bottom")
-        bottom_type = col_bottom[1].text_input("", value=default_bottom_release_type, key="bottom_release_type", label_visibility="collapsed")
-        bottom_sn = col_bottom[2].text_input("", value=default_bottom_release_sn, key="bottom_release_sn", label_visibility="collapsed")
-        bottom_int_freq = col_bottom[3].text_input("", value=default_bottom_release_int_freq, key="bottom_release_int_freq", label_visibility="collapsed")
-        bottom_reply = col_bottom[4].text_input("", value=default_bottom_release_reply, key="bottom_release_reply", label_visibility="collapsed")
-        bottom_release = col_bottom[5].text_input("", value=default_bottom_release_release, key="bottom_release_release", label_visibility="collapsed")
-        bottom_disable = col_bottom[6].text_input("", value=default_bottom_release_disable, key="bottom_release_disable", label_visibility="collapsed")
-        bottom_enable = col_bottom[7].text_input("", value=default_bottom_release_enable, key="bottom_release_enable", label_visibility="collapsed")
-        bottom_new = col_bottom[8].selectbox("", options=["", "Yes", "No"], index=0 if not default_bottom_release_new else (1 if default_bottom_release_new == "Yes" else 2), key="bottom_release_new", label_visibility="collapsed")
-        bottom_2nd_dep = col_bottom[9].selectbox("", options=["", "Yes", "No"], index=0 if not default_bottom_release_2nd_dep else (1 if default_bottom_release_2nd_dep == "Yes" else 2), key="bottom_release_2nd_dep", label_visibility="collapsed")
-        bottom_rebatteried = col_bottom[10].selectbox("", options=["", "Yes", "No"], index=0 if not default_bottom_release_rebatteried else (1 if default_bottom_release_rebatteried == "Yes" else 2), key="bottom_release_rebatteried", label_visibility="collapsed")
+        bottom_type = col_bottom[1].text_input("Bottom Release Type", value=default_bottom_release_type, key="bottom_release_type", label_visibility="collapsed")
+        bottom_sn = col_bottom[2].text_input("Bottom Release S/N", value=default_bottom_release_sn, key="bottom_release_sn", label_visibility="collapsed")
+        bottom_int_freq = col_bottom[3].text_input("Bottom Release Int. Freq.", value=default_bottom_release_int_freq, key="bottom_release_int_freq", label_visibility="collapsed")
+        bottom_reply = col_bottom[4].text_input("Bottom Release Reply", value=default_bottom_release_reply, key="bottom_release_reply", label_visibility="collapsed")
+        bottom_release = col_bottom[5].text_input("Bottom Release Release", value=default_bottom_release_release, key="bottom_release_release", label_visibility="collapsed")
+        bottom_disable = col_bottom[6].text_input("Bottom Release Disable", value=default_bottom_release_disable, key="bottom_release_disable", label_visibility="collapsed")
+        bottom_enable = col_bottom[7].text_input("Bottom Release Enable", value=default_bottom_release_enable, key="bottom_release_enable", label_visibility="collapsed")
+        bottom_new = col_bottom[8].selectbox("Bottom Release New", options=["", "Yes", "No"], index=0 if not default_bottom_release_new else (1 if default_bottom_release_new == "Yes" else 2), key="bottom_release_new", label_visibility="collapsed")
+        bottom_2nd_dep = col_bottom[9].selectbox("Bottom Release 2nd Dep", options=["", "Yes", "No"], index=0 if not default_bottom_release_2nd_dep else (1 if default_bottom_release_2nd_dep == "Yes" else 2), key="bottom_release_2nd_dep", label_visibility="collapsed")
+        bottom_rebatteried = col_bottom[10].selectbox("Bottom Release Rebatteried", options=["", "Yes", "No"], index=0 if not default_bottom_release_rebatteried else (1 if default_bottom_release_rebatteried == "Yes" else 2), key="bottom_release_rebatteried", label_visibility="collapsed")
 
         st.markdown("---")
 
@@ -1535,29 +1535,29 @@ def main():
 
             with anchor_left:
                 st.write("**Date**")
-                anchor_drop_date = st.text_input("", value=default_anchor_drop_date, key="anchor_drop_date", label_visibility="collapsed")
+                anchor_drop_date = st.text_input("Anchor Drop Date", value=default_anchor_drop_date, key="anchor_drop_date", label_visibility="collapsed")
 
                 st.write("**Latitude**")
-                anchor_drop_latitude = st.text_input("", value=default_anchor_drop_latitude, key="anchor_drop_latitude", label_visibility="collapsed")
+                anchor_drop_latitude = st.text_input("Anchor Drop Latitude", value=default_anchor_drop_latitude, key="anchor_drop_latitude", label_visibility="collapsed")
 
                 st.write("**Depth**")
-                anchor_drop_depth = st.text_input("", value=default_anchor_drop_depth, key="anchor_drop_depth", label_visibility="collapsed")
+                anchor_drop_depth = st.text_input("Anchor Drop Depth", value=default_anchor_drop_depth, key="anchor_drop_depth", label_visibility="collapsed")
 
                 st.write("**Depth Correction**")
-                anchor_depth_correction = st.text_input("", value=default_anchor_depth_correction, key="anchor_depth_correction", label_visibility="collapsed")
+                anchor_depth_correction = st.text_input("Anchor Depth Correction", value=default_anchor_depth_correction, key="anchor_depth_correction", label_visibility="collapsed")
 
             with anchor_right:
                 st.write("**Time**")
-                anchor_drop_time = st.text_input("", value=default_anchor_drop_time, key="anchor_drop_time", label_visibility="collapsed")
+                anchor_drop_time = st.text_input("Anchor Drop Time", value=default_anchor_drop_time, key="anchor_drop_time", label_visibility="collapsed")
 
                 st.write("**Longitude**")
-                anchor_drop_longitude = st.text_input("", value=default_anchor_drop_longitude, key="anchor_drop_longitude", label_visibility="collapsed")
+                anchor_drop_longitude = st.text_input("Anchor Drop Longitude", value=default_anchor_drop_longitude, key="anchor_drop_longitude", label_visibility="collapsed")
 
                 st.write("**Anchor Weight**")
-                anchor_weight = st.text_input("", value=default_anchor_weight, key="anchor_weight", label_visibility="collapsed")
+                anchor_weight = st.text_input("Anchor Weight", value=default_anchor_weight, key="anchor_weight", label_visibility="collapsed")
 
                 st.write("**Corrected Depth**")
-                anchor_corrected_depth = st.text_input("", value=default_anchor_corrected_depth, key="anchor_corrected_depth", label_visibility="collapsed")
+                anchor_corrected_depth = st.text_input("Anchor Corrected Depth", value=default_anchor_corrected_depth, key="anchor_corrected_depth", label_visibility="collapsed")
 
         with divider_col:
             st.markdown("""
@@ -1572,21 +1572,21 @@ def main():
 
             with flyby_left:
                 st.write("**Latitude**")
-                flyby_latitude = st.text_input("", value=default_flyby_latitude, key="flyby_latitude", label_visibility="collapsed")
+                flyby_latitude = st.text_input("Flyby Latitude", value=default_flyby_latitude, key="flyby_latitude", label_visibility="collapsed")
 
                 st.write("**Corrected Depth**")
-                flyby_corrected_depth = st.text_input("", value=default_flyby_corrected_depth, key="flyby_corrected_depth", label_visibility="collapsed")
+                flyby_corrected_depth = st.text_input("Flyby Corrected Depth", value=default_flyby_corrected_depth, key="flyby_corrected_depth", label_visibility="collapsed")
 
             with flyby_right:
                 st.write("**Longitude**")
-                flyby_longitude = st.text_input("", value=default_flyby_longitude, key="flyby_longitude", label_visibility="collapsed")
+                flyby_longitude = st.text_input("Flyby Longitude", value=default_flyby_longitude, key="flyby_longitude", label_visibility="collapsed")
 
                 st.write("**Method Used**")
                 flyby_method_options = ["", "fatho", "triangulated"]
                 flyby_method_index = 0
                 if default_flyby_method in flyby_method_options:
                     flyby_method_index = flyby_method_options.index(default_flyby_method)
-                flyby_method = st.selectbox("", options=flyby_method_options, index=flyby_method_index, key="flyby_method", label_visibility="collapsed")
+                flyby_method = st.selectbox("Flyby Method", options=flyby_method_options, index=flyby_method_index, key="flyby_method", label_visibility="collapsed")
 
         st.markdown("---")
 
@@ -1594,11 +1594,25 @@ def main():
         st.markdown("""
         <style>
         .historical-container {
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            border: 1px solid rgba(128, 128, 128, 0.3);
+            border-radius: 8px;
             padding: 20px;
             margin: 10px 0;
-            background-color: #f8f9fa;
+            background-color: rgba(128, 128, 128, 0.05);
+        }
+
+        /* Dark mode adjustments */
+        @media (prefers-color-scheme: dark) {
+            .historical-container {
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                background-color: rgba(255, 255, 255, 0.03);
+            }
+        }
+
+        /* Streamlit dark theme detection */
+        .stApp[data-theme="dark"] .historical-container {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.03);
         }
         </style>
         """, unsafe_allow_html=True)
