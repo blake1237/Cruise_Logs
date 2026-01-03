@@ -19,7 +19,7 @@ def search_recoveries(search_criteria=None):
             SELECT id, mooring_id, recovery_metadata, recovery_location, recovery_timing,
                    instrument_data_collection, mooring_line_recovery, release_system_recovery,
                    beacon_recovery, flasher_recovery, subsurface_recovery, cruise_information,
-                   data_quality_analysis
+                   data_quality_analysis, instrumentation, beacons
             FROM adcp_rec2 WHERE 1=1
         """
         params = []
@@ -43,7 +43,7 @@ def search_recoveries(search_criteria=None):
         columns = ['id', 'mooring_id', 'recovery_metadata', 'recovery_location', 'recovery_timing',
                   'instrument_data_collection', 'mooring_line_recovery', 'release_system_recovery',
                   'beacon_recovery', 'flasher_recovery', 'subsurface_recovery', 'cruise_information',
-                  'data_quality_analysis']
+                  'data_quality_analysis', 'instrumentation', 'beacons']
         results = cursor.fetchall()
 
         if results:
@@ -129,13 +129,50 @@ def save_recovery(form_data, record_id=None):
             "last_release_on_deck": form_data.get('last_release_on_deck', '')
         }
 
-        instrument_data_collection = {
-            "instrument_0": {
+        # Get instrumentation data to sync with instrument_data_collection
+        instrumentation_data = form_data.get('instrumentation', {})
+        pressure_instruments = instrumentation_data.get('pressure_instruments', [])
+
+        # Start with existing instrument_data_collection or empty dict
+        instrument_data_collection = {}
+
+        # Process pressure instruments and map to instrument_data_collection
+        instrument_index = 0
+        for instrument in pressure_instruments:
+            inst_type = instrument.get('type', '')
+            serial_number = instrument.get('serial_number', '')
+            status = instrument.get('status', '')
+            comments = instrument.get('comments', '')
+
+            if inst_type and (serial_number or status != 'OK' or comments):  # Only save if has meaningful data
+                instrument_key = f"instrument_{instrument_index}"
+                instrument_data_collection[instrument_key] = {
+                    "type": inst_type,
+                    "serial_number": serial_number,
+                    "status": status,
+                    "comment": comments,
+                    "battery": form_data.get('adcp_battery', '') if inst_type == 'ADCP' else '',
+                    "clock_comment": form_data.get('adcp_clock_comment', '') if inst_type == 'ADCP' else '',
+                    "date": form_data.get('adcp_date', '') if inst_type == 'ADCP' else '',
+                    "date_error": form_data.get('adcp_date_error', '') if inst_type == 'ADCP' else '',
+                    "error": form_data.get('adcp_error', '') if inst_type == 'ADCP' else '',
+                    "filename": form_data.get('adcp_filename', '') if inst_type == 'ADCP' else '',
+                    "gmt_time": form_data.get('adcp_gmt_time', '') if inst_type == 'ADCP' else '',
+                    "gmt_date": form_data.get('adcp_gmt_date', '') if inst_type == 'ADCP' else '',
+                    "number_records": form_data.get('adcp_number_records', '') if inst_type == 'ADCP' else '',
+                    "time": form_data.get('adcp_time', '') if inst_type == 'ADCP' else ''
+                }
+                instrument_index += 1
+
+        # Ensure instrument_0 is always ADCP (fallback if no instrumentation data)
+        if 'instrument_0' not in instrument_data_collection:
+            instrument_data_collection["instrument_0"] = {
+                "type": "ADCP",
                 "serial_number": form_data.get('adcp_sn', ''),
                 "status": form_data.get('adcp_status', ''),
+                "comment": form_data.get('adcp_comment', ''),
                 "battery": form_data.get('adcp_battery', ''),
                 "clock_comment": form_data.get('adcp_clock_comment', ''),
-                "comment": form_data.get('adcp_comment', ''),
                 "date": form_data.get('adcp_date', ''),
                 "date_error": form_data.get('adcp_date_error', ''),
                 "error": form_data.get('adcp_error', ''),
@@ -145,7 +182,6 @@ def save_recovery(form_data, record_id=None):
                 "number_records": form_data.get('adcp_number_records', ''),
                 "time": form_data.get('adcp_time', '')
             }
-        }
 
         mooring_line_recovery = {}
 
@@ -163,6 +199,11 @@ def save_recovery(form_data, record_id=None):
             "release_communication": form_data.get('release_communication', '')
         }
 
+        # Get beacons data from form
+        beacons_data = form_data.get('beacons', {})
+        beacons_list = beacons_data.get('beacons', [])
+
+        # Initialize beacon and flasher structures
         beacon_recovery = {
             "rf_beacon": {
                 "serial_number": form_data.get('rf_beacon_sn', ''),
@@ -184,6 +225,30 @@ def save_recovery(form_data, record_id=None):
             "comment": form_data.get('flasher_comment', '')
         }
 
+        # Update beacon and flasher structures from beacons data
+        for beacon in beacons_list:
+            beacon_type = beacon.get('type', '').lower()
+            if 'rf' in beacon_type or beacon_type == 'rf beacon':
+                beacon_recovery["rf_beacon"] = {
+                    "serial_number": beacon.get('serial_number', ''),
+                    "status": beacon.get('status', ''),
+                    "transmit_frequency": form_data.get('rf_beacon_freq', ''),
+                    "comment": beacon.get('comments', '')
+                }
+            elif 'argos' in beacon_type or beacon_type == 'argos beacon':
+                beacon_recovery["argos_beacon"] = {
+                    "serial_number": beacon.get('serial_number', ''),
+                    "ptt": form_data.get('argos_beacon_ptt', ''),
+                    "status": beacon.get('status', ''),
+                    "comment": beacon.get('comments', '')
+                }
+            elif 'flasher' in beacon_type:
+                flasher_recovery = {
+                    "serial_number": beacon.get('serial_number', ''),
+                    "status": beacon.get('status', ''),
+                    "comment": beacon.get('comments', '')
+                }
+
         subsurface_recovery = {
             "notes": form_data.get('subsurface_notes', ''),
             "slant_ranges": form_data.get('slant_ranges', ''),
@@ -202,6 +267,8 @@ def save_recovery(form_data, record_id=None):
             "personnel": form_data.get('personnel', '')
         }
 
+        instrumentation = form_data.get('instrumentation', {})
+
         data_quality_analysis = {}
 
         if record_id:
@@ -211,7 +278,7 @@ def save_recovery(form_data, record_id=None):
                 mooring_id = ?, recovery_metadata = ?, recovery_location = ?, recovery_timing = ?,
                 instrument_data_collection = ?, mooring_line_recovery = ?, release_system_recovery = ?,
                 beacon_recovery = ?, flasher_recovery = ?, subsurface_recovery = ?, cruise_information = ?,
-                data_quality_analysis = ?
+                data_quality_analysis = ?, instrumentation = ?, beacons = ?
                 WHERE id = ?
             """, (
                 form_data.get('mooring_id', ''),
@@ -226,6 +293,8 @@ def save_recovery(form_data, record_id=None):
                 json.dumps(subsurface_recovery),
                 json.dumps(cruise_information),
                 json.dumps(data_quality_analysis),
+                json.dumps(instrumentation),
+                json.dumps(beacons_data),
                 record_id
             ))
         else:
@@ -235,8 +304,8 @@ def save_recovery(form_data, record_id=None):
                 (mooring_id, recovery_metadata, recovery_location, recovery_timing,
                  instrument_data_collection, mooring_line_recovery, release_system_recovery,
                  beacon_recovery, flasher_recovery, subsurface_recovery, cruise_information,
-                 data_quality_analysis)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 data_quality_analysis, instrumentation, beacons)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 form_data.get('mooring_id', ''),
                 json.dumps(recovery_metadata),
@@ -249,7 +318,9 @@ def save_recovery(form_data, record_id=None):
                 json.dumps(flasher_recovery),
                 json.dumps(subsurface_recovery),
                 json.dumps(cruise_information),
-                json.dumps(data_quality_analysis)
+                json.dumps(data_quality_analysis),
+                json.dumps(instrumentation),
+                json.dumps(beacons_data)
             ))
             record_id = cursor.lastrowid
 
@@ -285,7 +356,6 @@ def main():
         border-bottom: 2px solid #1f77b4;
         margin-bottom: 2rem;
     }
-    h2 {
         color: #1f77b4;
         margin-top: 2rem;
         margin-bottom: 1rem;
@@ -293,6 +363,27 @@ def main():
     .stTextInput label {
         font-weight: 600;
         color: var(--text-color);
+    }
+    .instrumentation-table {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        margin: 10px 0;
+        background-color: #f9f9f9;
+    }
+    .inst-header {
+        font-weight: bold;
+        padding: 5px;
+        background-color: #e9ecef;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 10px;
+    }
+    .inst-row {
+        padding: 5px 0;
+        border-bottom: 1px solid #eee;
+    }
+    .inst-row:last-child {
+        border-bottom: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -316,6 +407,12 @@ def main():
 
     # Mode selection
     mode = st.radio("Mode", ["Search/Edit", "Add New"], key="mode_selector", horizontal=True)
+
+    # Reset instruments when switching to Add New mode
+    if mode == "Add New" and st.session_state.mode != mode:
+        st.session_state.instruments = []
+        st.session_state.beacons = []
+
     st.session_state.mode = mode
 
     # Get list of sites for dropdown
@@ -379,6 +476,78 @@ def main():
                 current_record = st.session_state.search_results.iloc[st.session_state.current_record_index]
                 current_record_dict = current_record.to_dict() if hasattr(current_record, 'to_dict') else dict(current_record)
                 st.session_state.selected_recovery = current_record_dict
+
+                # Reset instruments session state when selecting a record
+                # First try to get data from instrumentation column
+                instrumentation_data = parse_json_field(current_record_dict.get('instrumentation', '{}'))
+                default_instruments = instrumentation_data.get('pressure_instruments', [])
+
+                # If no instrumentation data, populate from instrument_data_collection
+                if not default_instruments:
+                    instrument_data_collection = parse_json_field(current_record_dict.get('instrument_data_collection', '{}'))
+                    default_instruments = []
+
+                    # Create instruments directly from database data
+                    for key, instrument in sorted(instrument_data_collection.items()):
+                        if instrument:
+                            # Handle instrument_0 specially (always ADCP)
+                            if key == 'instrument_0':
+                                default_instruments.append({
+                                    'type': 'ADCP',
+                                    'serial_number': str(instrument.get('serial_number', '')) if instrument.get('serial_number') else '',
+                                    'status': instrument.get('status', 'OK') or 'OK',
+                                    'comments': instrument.get('comment', '') or instrument.get('comments', '') or ''
+                                })
+                            elif instrument.get('type'):
+                                default_instruments.append({
+                                    'type': instrument.get('type'),
+                                    'serial_number': str(instrument.get('serial_number', '')) if instrument.get('serial_number') else '',
+                                    'status': instrument.get('status', 'OK') or 'OK',
+                                    'comments': instrument.get('comment', '') or instrument.get('comments', '') or ''
+                                })
+
+                st.session_state.instruments = default_instruments
+
+                # Reset beacons session state when selecting a record
+                # First try to get data from beacons column
+                beacons_data = parse_json_field(current_record_dict.get('beacons', '{}'))
+                default_beacons = beacons_data.get('beacons', [])
+
+                # If no beacons data, populate from beacon_recovery and flasher_recovery
+                if not default_beacons:
+                    beacon_recovery = parse_json_field(current_record_dict.get('beacon_recovery', '{}'))
+                    flasher_recovery = parse_json_field(current_record_dict.get('flasher_recovery', '{}'))
+                    default_beacons = []
+
+                    # Add RF beacon if it exists
+                    if beacon_recovery.get('rf_beacon') and (beacon_recovery['rf_beacon'].get('serial_number') or beacon_recovery['rf_beacon'].get('status')):
+                        rf_beacon = beacon_recovery['rf_beacon']
+                        default_beacons.append({
+                            'type': 'RF Beacon',
+                            'serial_number': str(rf_beacon.get('serial_number', '')) if rf_beacon.get('serial_number') else '',
+                            'status': rf_beacon.get('status', 'OK') or 'OK',
+                            'comments': rf_beacon.get('comment', '') or ''
+                        })
+
+                    # Add Argos beacon if it exists
+                    if beacon_recovery.get('argos_beacon') and (beacon_recovery['argos_beacon'].get('serial_number') or beacon_recovery['argos_beacon'].get('status')):
+                        argos_beacon = beacon_recovery['argos_beacon']
+                        default_beacons.append({
+                            'type': 'Argos Beacon',
+                            'serial_number': str(argos_beacon.get('serial_number', '')) if argos_beacon.get('serial_number') else '',
+                            'status': argos_beacon.get('status', 'OK') or 'OK',
+                            'comments': argos_beacon.get('comment', '') or ''
+                        })
+
+                    # Add Flasher - always include even if empty
+                    default_beacons.append({
+                        'type': 'Flasher',
+                        'serial_number': str(flasher_recovery.get('serial_number', '')) if flasher_recovery and flasher_recovery.get('serial_number') else '',
+                        'status': flasher_recovery.get('status', 'OK') if flasher_recovery else 'OK',
+                        'comments': flasher_recovery.get('comment', '') if flasher_recovery else ''
+                    })
+
+                st.session_state.beacons = default_beacons
 
                 # Parse JSON fields for display
                 recovery_metadata = parse_json_field(current_record_dict.get('recovery_metadata', '{}'))
@@ -498,16 +667,220 @@ def main():
 
         st.markdown("---")
 
+        st.subheader("Instrumentation")
+
+        if mode == "Search/Edit" and st.session_state.selected_recovery:
+            # Get existing instrumentation data if available
+            instrumentation_data = parse_json_field(current_record.get('instrumentation', '{}'))
+            default_instruments = instrumentation_data.get('pressure_instruments', [])
+
+            # If no instrumentation data, populate from instrument_data_collection
+            if not default_instruments:
+                instrument_data_collection = parse_json_field(current_record.get('instrument_data_collection', '{}'))
+                default_instruments = []
+
+                # Create instruments directly from database data
+                for key, instrument in sorted(instrument_data_collection.items()):
+                    if instrument:
+                        # Handle instrument_0 specially (always ADCP)
+                        if key == 'instrument_0':
+                            default_instruments.append({
+                                'type': 'ADCP',
+                                'serial_number': str(instrument.get('serial_number', '')) if instrument.get('serial_number') else '',
+                                'status': instrument.get('status', 'OK') or 'OK',
+                                'comments': instrument.get('comment', '') or instrument.get('comments', '') or ''
+                            })
+                        elif instrument.get('type'):
+                            default_instruments.append({
+                                'type': instrument.get('type'),
+                                'serial_number': str(instrument.get('serial_number', '')) if instrument.get('serial_number') else '',
+                                'status': instrument.get('status', 'OK') or 'OK',
+                                'comments': instrument.get('comment', '') or instrument.get('comments', '') or ''
+                            })
+        else:
+            # Defaults for Add New mode - start with empty list
+            default_instruments = []
+
+        # Handle beacons initialization for instrumentation section
+        if mode == "Search/Edit" and st.session_state.selected_recovery:
+            # Beacon data already initialized above in the session state reset
+            pass
+        else:
+            # Initialize empty beacons for Add New mode with default Flasher
+            if 'beacons' not in st.session_state:
+                st.session_state.beacons = [
+                    {'type': 'Flasher', 'serial_number': '', 'status': 'OK', 'comments': ''}
+                ]
+
+        st.write("**Instruments**")
+
+        # Initialize session state for instruments if not exists
+        if 'instruments' not in st.session_state:
+            st.session_state.instruments = default_instruments.copy()
+
+        # Display existing instrument rows
+        header_cols = st.columns([2, 2, 1.5, 3])
+        with header_cols[0]:
+            st.write("**Inst Type**")
+        with header_cols[1]:
+            st.write("**S/N**")
+        with header_cols[2]:
+            st.write("**Status**")
+        with header_cols[3]:
+            st.write("**Comments**")
+
+        for i, instrument in enumerate(st.session_state.instruments):
+            cols = st.columns([2, 2, 1.5, 3])
+
+            with cols[0]:
+                # Allow editing of instrument type
+                inst_type = st.text_input(
+                    f"Type {i+1}",
+                    value=instrument.get('type', ''),
+                    key=f"inst_type_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[1]:
+                serial_number = st.text_input(
+                    f"S/N {i+1}",
+                    value=instrument.get('serial_number', ''),
+                    key=f"inst_sn_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[2]:
+                instrument_status = instrument.get('status', 'OK') or 'OK'
+                status = st.selectbox(
+                    f"Status {i+1}",
+                    options=['OK', 'Damaged', 'Lost'],
+                    index=['OK', 'Damaged', 'Lost'].index(instrument_status),
+                    key=f"inst_status_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[3]:
+                comments = st.text_input(
+                    f"Comments {i+1}",
+                    value=instrument.get('comments', ''),
+                    key=f"inst_comments_{i}",
+                    label_visibility="collapsed"
+                )
+
+            # Update the instrument data in session state
+            st.session_state.instruments[i] = {
+                'type': inst_type,
+                'serial_number': serial_number,
+                'status': status,
+                'comments': comments
+            }
+
+        st.markdown("---")
+
+        st.subheader("Beacons")
+
+        # Initialize session state for beacons if not exists
+        if 'beacons' not in st.session_state:
+            st.session_state.beacons = []
+
+
+
+        # Display existing beacon rows
+        header_cols = st.columns([2, 2, 1.5, 3])
+        with header_cols[0]:
+            st.write("**Type**")
+        with header_cols[1]:
+            st.write("**S/N**")
+        with header_cols[2]:
+            st.write("**Status**")
+        with header_cols[3]:
+            st.write("**Comments**")
+
+        for i, beacon in enumerate(st.session_state.beacons):
+            cols = st.columns([2, 2, 1.5, 3])
+
+            with cols[0]:
+                # Allow editing of beacon type
+                beacon_type = st.text_input(
+                    f"Type {i+1}",
+                    value=beacon.get('type', ''),
+                    key=f"beacon_type_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[1]:
+                serial_number = st.text_input(
+                    f"S/N {i+1}",
+                    value=beacon.get('serial_number', ''),
+                    key=f"beacon_sn_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[2]:
+                beacon_status = beacon.get('status', 'OK') or 'OK'
+                status = st.selectbox(
+                    f"Status {i+1}",
+                    options=['OK', 'Damaged', 'Lost'],
+                    index=['OK', 'Damaged', 'Lost'].index(beacon_status),
+                    key=f"beacon_status_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[3]:
+                comments = st.text_input(
+                    f"Comments {i+1}",
+                    value=beacon.get('comments', ''),
+                    key=f"beacon_comments_{i}",
+                    label_visibility="collapsed"
+                )
+
+            # Update the beacon data in session state
+            st.session_state.beacons[i] = {
+                'type': beacon_type,
+                'serial_number': serial_number,
+                'status': status,
+                'comments': comments
+            }
+
+        st.markdown("---")
+
         # Form submission buttons
-        col_button, col_spacer = st.columns([1, 11])
-        with col_button:
+        col_button1, col_button2, col_spacer = st.columns([1, 1, 10])
+        with col_button1:
             if mode == "Search/Edit" and st.session_state.selected_recovery:
                 submitted = st.form_submit_button("Update", use_container_width=True, type="primary")
             else:
                 submitted = st.form_submit_button("Save", use_container_width=True, type="primary")
 
+        with col_button2:
+            add_instrument = st.form_submit_button("+ Add Instrument", use_container_width=True)
+
+        # Add beacon button (third column if we had one, or handle separately)
+        if st.session_state.get('show_add_beacon_in_form', False):
+            add_beacon = st.form_submit_button("+ Add Beacon", use_container_width=True)
+        else:
+            add_beacon = False
+
+        if add_instrument:
+            # Add a new instrument to the session state with empty type
+            st.session_state.instruments.append({'type': '', 'serial_number': '', 'status': 'OK', 'comments': ''})
+            st.rerun()
+
+        if add_beacon:
+            # Add a new beacon to the session state
+            st.session_state.beacons.append({'type': '', 'serial_number': '', 'status': 'OK', 'comments': ''})
+            st.rerun()
+
         if submitted:
-            # Prepare form data
+            # Prepare form data including instrumentation and beacons
+            instrumentation_data = {
+                'pressure_instruments': st.session_state.get('instruments', [])
+            }
+
+            beacons_data = {
+                'beacons': st.session_state.get('beacons', [])
+            }
+
             form_data = {
                 'mooring_id': mooring_id,
                 'site': site,
@@ -517,7 +890,9 @@ def main():
                 'latitude': latitude,
                 'longitude': longitude,
                 'release_fire_time': release_fire_time,
-                'time_on_deck': time_on_deck
+                'time_on_deck': time_on_deck,
+                'instrumentation': instrumentation_data,
+                'beacons': beacons_data
             }
 
             # Save record
@@ -535,6 +910,42 @@ def main():
                 st.session_state.selected_recovery = None
             else:
                 st.error(f"❌ Error saving recovery: {result}")
+
+    # Outside of form - Add instrument and beacon management buttons
+    if mode in ["Search/Edit", "Add New"]:
+        st.subheader("Management")
+
+        col1, col2, col3, col4 = st.columns([2, 2, 2, 6])
+
+        with col1:
+            if st.button("Remove Last Instrument", disabled=len(st.session_state.get('instruments', [])) <= 0):
+                if len(st.session_state.instruments) > 0:
+                    st.session_state.instruments.pop()
+                    st.rerun()
+
+        with col2:
+            if st.button("Clear All Instruments"):
+                st.session_state.instruments = []
+                st.rerun()
+
+        with col3:
+            if st.button("Add Beacon"):
+                st.session_state.beacons.append({'type': '', 'serial_number': '', 'status': 'OK', 'comments': ''})
+                st.rerun()
+
+        # Beacon management in a second row
+        col5, col6, col7, col8 = st.columns([2, 2, 2, 6])
+
+        with col5:
+            if st.button("Remove Last Beacon", disabled=len(st.session_state.get('beacons', [])) <= 0):
+                if len(st.session_state.beacons) > 0:
+                    st.session_state.beacons.pop()
+                    st.rerun()
+
+        with col6:
+            if st.button("Clear All Beacons"):
+                st.session_state.beacons = []
+                st.rerun()
 
 if __name__ == '__main__':
     main()
