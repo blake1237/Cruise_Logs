@@ -183,7 +183,22 @@ def save_recovery(form_data, record_id=None):
                 "time": form_data.get('adcp_time', '')
             }
 
+        # Get mooring components data from form and convert to line_X format
+        mooring_components_data = form_data.get('mooring_components', {})
+        components_list = mooring_components_data.get('components', [])
+
         mooring_line_recovery = {}
+
+        # Convert components list to line_X format for database storage
+        for i, component in enumerate(components_list):
+            line_key = f"line_{i+1}"
+            mooring_line_recovery[line_key] = {
+                'type': component.get('type') or None,
+                'serial_number': component.get('serial_number') or None,
+                'length': float(component.get('length')) if component.get('length') and component.get('length').replace('.', '').isdigit() else None,
+                'status': component.get('status') or 'OK',
+                'comment': component.get('comments') or None
+            }
 
         release_system_recovery = {
             "top_release": {
@@ -271,6 +286,8 @@ def save_recovery(form_data, record_id=None):
 
         data_quality_analysis = {}
 
+        recovery_info = form_data.get('recovery_info', {})
+
         if record_id:
             # Update existing record
             cursor.execute("""
@@ -278,7 +295,7 @@ def save_recovery(form_data, record_id=None):
                 mooring_id = ?, recovery_metadata = ?, recovery_location = ?, recovery_timing = ?,
                 instrument_data_collection = ?, mooring_line_recovery = ?, release_system_recovery = ?,
                 beacon_recovery = ?, flasher_recovery = ?, subsurface_recovery = ?, cruise_information = ?,
-                data_quality_analysis = ?, instrumentation = ?, beacons = ?
+                data_quality_analysis = ?, instrumentation = ?, beacons = ?, recovery_info = ?
                 WHERE id = ?
             """, (
                 form_data.get('mooring_id', ''),
@@ -295,6 +312,7 @@ def save_recovery(form_data, record_id=None):
                 json.dumps(data_quality_analysis),
                 json.dumps(instrumentation),
                 json.dumps(beacons_data),
+                json.dumps(recovery_info),
                 record_id
             ))
         else:
@@ -304,8 +322,8 @@ def save_recovery(form_data, record_id=None):
                 (mooring_id, recovery_metadata, recovery_location, recovery_timing,
                  instrument_data_collection, mooring_line_recovery, release_system_recovery,
                  beacon_recovery, flasher_recovery, subsurface_recovery, cruise_information,
-                 data_quality_analysis, instrumentation, beacons)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 data_quality_analysis, instrumentation, beacons, recovery_info)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 form_data.get('mooring_id', ''),
                 json.dumps(recovery_metadata),
@@ -320,7 +338,8 @@ def save_recovery(form_data, record_id=None):
                 json.dumps(cruise_information),
                 json.dumps(data_quality_analysis),
                 json.dumps(instrumentation),
-                json.dumps(beacons_data)
+                json.dumps(beacons_data),
+                json.dumps(recovery_info)
             ))
             record_id = cursor.lastrowid
 
@@ -549,6 +568,118 @@ def main():
 
                 st.session_state.beacons = default_beacons
 
+                # Initialize mooring components session state when selecting a record
+                mooring_line_recovery = parse_json_field(current_record_dict.get('mooring_line_recovery', '{}'))
+                default_components = []
+
+                # Parse line_1, line_2, etc. format from database
+                for key, component in sorted(mooring_line_recovery.items()):
+                    if key.startswith('line_') and component:
+                        # Only add components that have meaningful data
+                        if (component.get('type') or
+                            component.get('serial_number') or
+                            component.get('length') or
+                            component.get('comment')):
+                            default_components.append({
+                                'type': component.get('type') or '',
+                                'serial_number': component.get('serial_number') or '',
+                                'length': str(component.get('length', '')) if component.get('length') else '',
+                                'status': component.get('status') or 'OK',
+                                'comments': component.get('comment') or ''
+                            })
+
+                st.session_state.mooring_components = default_components
+
+                # Initialize releases session state when selecting a record
+                release_system_data = parse_json_field(current_record_dict.get('release_system_recovery', '{}'))
+
+                # Extract top and bottom release data
+                top_release = release_system_data.get('top_release', {})
+                bottom_release = release_system_data.get('bottom_release', {})
+
+                # Convert to our internal format
+                def get_recovered_status(release_data):
+                    lost_value = release_data.get('lost')
+                    if lost_value is None:
+                        return ''
+                    elif lost_value is True:
+                        return 'No'
+                    elif lost_value is False:
+                        return 'Yes'
+                    else:
+                        return ''
+
+                default_releases = [
+                    {
+                        'position': 'Top',
+                        'serial_number': str(top_release.get('serial_number', '')) if top_release.get('serial_number') else '',
+                        'type': str(top_release.get('type', '')) if top_release.get('type') else '',
+                        'recovered': get_recovered_status(top_release)
+                    },
+                    {
+                        'position': 'Bottom',
+                        'serial_number': str(bottom_release.get('serial_number', '')) if bottom_release.get('serial_number') else '',
+                        'type': str(bottom_release.get('type', '')) if bottom_release.get('type') else '',
+                        'recovered': get_recovered_status(bottom_release)
+                    }
+                ]
+
+                st.session_state.releases = default_releases
+                st.session_state.release_communication = release_system_data.get('release_communication', '')
+
+                # Initialize clock errors session state when selecting a record
+                instrument_data_collection = parse_json_field(current_record_dict.get('instrument_data_collection', '{}'))
+
+                # Extract clock errors from instrument_data_collection
+                default_clock_errors = [
+                    {'instrument': 'ADCP', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''},
+                    {'instrument': 'P1', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''},
+                    {'instrument': 'P2', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''}
+                ]
+
+                # Map instrument_data_collection to clock errors format
+                # Check specific instrument positions for ADCP, P1, P2
+                instrument_keys = ['instrument_0', 'instrument_1', 'instrument_2']
+
+                for i, inst_key in enumerate(instrument_keys):
+                    if inst_key in instrument_data_collection:
+                        instrument = instrument_data_collection[inst_key]
+                        if instrument and (instrument.get('type') or instrument.get('serial_number') or
+                                         instrument.get('filename') or instrument.get('clock_comment')):
+
+                            clock_error_entry = {
+                                'serial_number': str(instrument.get('serial_number', '')) if instrument.get('serial_number') else '',
+                                'gmt_date': str(instrument.get('gmt_date', ''))[:10] if instrument.get('gmt_date') else '',  # Extract date part
+                                'inst_date': str(instrument.get('date', ''))[:10] if instrument.get('date') else '',  # Extract date part
+                                'date_error': str(instrument.get('date_error', '')) if instrument.get('date_error') is not None else '',
+                                'gmt_time': str(instrument.get('gmt_time', '')) if instrument.get('gmt_time') else '',
+                                'inst_time': str(instrument.get('time', '')) if instrument.get('time') else '',
+                                'time_error': str(instrument.get('error', '')) if instrument.get('error') is not None else '',
+                                'file_name': str(instrument.get('filename', '')) if instrument.get('filename') else '',
+                                'comments': str(instrument.get('clock_comment', '')) if instrument.get('clock_comment') else ''
+                            }
+
+                            if i == 0:  # instrument_0 -> ADCP
+                                default_clock_errors[0].update({
+                                    'instrument': 'ADCP',
+                                    **clock_error_entry
+                                })
+                            elif i == 1:  # instrument_1 -> P1
+                                default_clock_errors[1].update({
+                                    'instrument': 'P1',
+                                    **clock_error_entry
+                                })
+                            elif i == 2:  # instrument_2 -> P2
+                                default_clock_errors[2].update({
+                                    'instrument': 'P2',
+                                    **clock_error_entry
+                                })
+
+                st.session_state.clock_errors = default_clock_errors
+
+                # Initialize general comments session state when selecting a record
+                st.session_state.general_comments = current_record_dict.get('general_comments', '')
+
                 # Parse JSON fields for display
                 recovery_metadata = parse_json_field(current_record_dict.get('recovery_metadata', '{}'))
                 cruise_information = parse_json_field(current_record_dict.get('cruise_information', '{}'))
@@ -593,6 +724,40 @@ def main():
         default_release_fire_time = recovery_timing.get('confirmed_release_time', '') if recovery_timing else ''
         default_time_on_deck = recovery_timing.get('float_ball_on_deck', '') if recovery_timing else ''
 
+        # Recovery Info defaults - map from recovery_timing and recovery_info
+        recovery_info_data = parse_json_field(current_record.get('recovery_info', '{}'))
+
+        # Combine release enable time and date with proper formatting
+        enable_time = recovery_timing.get('release_enable_time', '') if recovery_timing else ''
+        enable_date = recovery_timing.get('rel_enable_date', '') if recovery_timing else ''
+
+        # Format enable date to YYYY-MM-DD
+        formatted_enable_date = ''
+        if enable_date:
+            try:
+                from datetime import datetime
+                parsed_date = datetime.strptime(enable_date, "%Y-%m-%d %H:%M:%S")
+                formatted_enable_date = parsed_date.strftime("%Y-%m-%d")
+            except:
+                formatted_enable_date = enable_date.split()[0] if ' ' in enable_date else enable_date
+
+        default_release_enable_combined = f"{formatted_enable_date} / {enable_time}".strip() if formatted_enable_date or enable_time else ''
+
+        # Combine confirmed release time with enable date (same date)
+        confirmed_time = recovery_timing.get('confirmed_release_time', '') if recovery_timing else ''
+
+        # Use the same formatted date as release enable date
+        default_confirmed_release_combined = f"{formatted_enable_date} / {confirmed_time}".strip() if formatted_enable_date or confirmed_time else ''
+        default_depth = recovery_metadata.get('depth', '') if recovery_metadata else ''
+
+        default_final_pre_release_slant_range = recovery_location.get('slant_ranges', '') if recovery_location else ''
+        default_time_float_sighted = recovery_timing.get('float_ball_sighted_on_surface', '') if recovery_timing else ''
+        # Handle null values for post_release_slant_ranges
+        post_release_slant = recovery_location.get('post_release_slant_ranges') if recovery_location else None
+        default_first_post_release_slant_range = post_release_slant if post_release_slant is not None else ''
+        default_time_float_on_deck = recovery_timing.get('float_ball_on_deck', '') if recovery_timing else ''
+        default_time_releases_on_deck = recovery_timing.get('last_release_on_deck', '') if recovery_timing else ''
+
         # Convert recovery_date string to date object if it exists
         default_recovery_date = date.today()
         if recovery_metadata.get('recovery_date'):
@@ -611,6 +776,41 @@ def main():
         default_release_fire_time = ""
         default_time_on_deck = ""
         default_recovery_date = date.today()
+
+        # Recovery Info defaults for Add New mode
+        default_release_enable_combined = ""
+        default_confirmed_release_combined = ""
+        default_depth = ""
+        default_final_pre_release_slant_range = ""
+        default_time_float_sighted = ""
+        default_first_post_release_slant_range = ""
+        default_time_float_on_deck = ""
+        default_time_releases_on_deck = ""
+
+        # Initialize empty mooring components for Add New mode
+        if 'mooring_components' not in st.session_state:
+            st.session_state.mooring_components = []
+
+        # Initialize releases for Add New mode
+        if 'releases' not in st.session_state:
+            st.session_state.releases = [
+                {'position': 'Top', 'serial_number': '', 'type': '', 'recovered': ''},
+                {'position': 'Bottom', 'serial_number': '', 'type': '', 'recovered': ''}
+            ]
+        if 'release_communication' not in st.session_state:
+            st.session_state.release_communication = ''
+
+        # Initialize clock errors for Add New mode
+        if 'clock_errors' not in st.session_state:
+            st.session_state.clock_errors = [
+                {'instrument': 'ADCP', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''},
+                {'instrument': 'P1', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''},
+                {'instrument': 'P2', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''}
+            ]
+
+        # Initialize general comments for Add New mode
+        if 'general_comments' not in st.session_state:
+            st.session_state.general_comments = ''
 
     # Create the main form
     with st.form("recovery_form"):
@@ -844,32 +1044,352 @@ def main():
 
         st.markdown("---")
 
+        st.subheader("Recovery Info")
+
+        # Row 1: Release Enable DateTime, Confirmed Release DateTime
+        recovery_row1 = st.columns([1, 1])
+        with recovery_row1[0]:
+            st.write("**Release Enable DateTime**")
+            placeholder_enable = "YYYY-MM-DD / HH:MM:SS" if mode == "Add New" else ""
+            release_enable_combined = st.text_input("Release Enable DateTime", value=default_release_enable_combined, placeholder=placeholder_enable, key="release_enable_combined", label_visibility="collapsed")
+        with recovery_row1[1]:
+            st.write("**Confirmed Release DateTime**")
+            placeholder_confirmed = "YYYY-MM-DD / HH:MM:SS" if mode == "Add New" else ""
+            confirmed_release_combined = st.text_input("Confirmed Release DateTime", value=default_confirmed_release_combined, placeholder=placeholder_confirmed, key="confirmed_release_combined", label_visibility="collapsed")
+
+        # Row 2: Depth (single column)
+        recovery_row2 = st.columns([1, 1])
+        with recovery_row2[0]:
+            st.write("**Depth**")
+            depth = st.text_input("Depth", value=default_depth, key="depth", label_visibility="collapsed")
+
+        # Row 3: Pre-release Slant Range, Time Float sighted
+        recovery_row3 = st.columns([1, 1])
+        with recovery_row3[0]:
+            st.write("**Pre-release Slant Range**")
+            final_pre_release_slant_range = st.text_input("Pre-release Slant Range", value=default_final_pre_release_slant_range, key="final_pre_release_slant_range", label_visibility="collapsed")
+        with recovery_row3[1]:
+            st.write("**Time Float sighted**")
+            time_float_sighted = st.text_input("Time Float sighted", value=default_time_float_sighted, key="time_float_sighted", label_visibility="collapsed")
+
+        # Row 4: Post-release Slant Range, Time Float on deck
+        recovery_row4 = st.columns([1, 1])
+        with recovery_row4[0]:
+            st.write("**Post-release Slant Range**")
+            first_post_release_slant_range = st.text_input("Post-release Slant Range", value=default_first_post_release_slant_range, key="first_post_release_slant_range", label_visibility="collapsed")
+        with recovery_row4[1]:
+            st.write("**Time Float on deck**")
+            time_float_on_deck = st.text_input("Time Float on deck", value=default_time_float_on_deck, key="time_float_on_deck", label_visibility="collapsed")
+
+        # Row 5: Time releases on deck (single column)
+        recovery_row5 = st.columns([1, 1])
+        with recovery_row5[0]:
+            st.write("**Time releases on deck**")
+            time_releases_on_deck = st.text_input("Time releases on deck", value=default_time_releases_on_deck, key="time_releases_on_deck", label_visibility="collapsed")
+
+        st.markdown("---")
+
+        st.subheader("Mooring Components")
+
+        # Initialize session state for mooring components if not exists
+        if 'mooring_components' not in st.session_state:
+            st.session_state.mooring_components = []
+
+        # Display mooring components table header
+        header_cols = st.columns([0.5, 2, 2, 1.5, 1.5, 3])
+        with header_cols[0]:
+            st.write("**#**")
+        with header_cols[1]:
+            st.write("**Type**")
+        with header_cols[2]:
+            st.write("**S/N**")
+        with header_cols[3]:
+            st.write("**Length**")
+        with header_cols[4]:
+            st.write("**Status**")
+        with header_cols[5]:
+            st.write("**Comments**")
+
+        # Display existing mooring component rows
+        for i, component in enumerate(st.session_state.mooring_components):
+            cols = st.columns([0.5, 2, 2, 1.5, 1.5, 3])
+
+            with cols[0]:
+                st.write(f"{i+1}")
+
+            with cols[1]:
+                component_type = st.text_input(
+                    f"Type {i+1}",
+                    value=component.get('type', ''),
+                    key=f"component_type_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[2]:
+                serial_number = st.text_input(
+                    f"S/N {i+1}",
+                    value=component.get('serial_number', ''),
+                    key=f"component_sn_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[3]:
+                length = st.text_input(
+                    f"Length {i+1}",
+                    value=component.get('length', ''),
+                    key=f"component_length_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[4]:
+                component_status = component.get('status', 'OK') or 'OK'
+                status = st.selectbox(
+                    f"Status {i+1}",
+                    options=['OK', 'Damaged', 'Lost'],
+                    index=['OK', 'Damaged', 'Lost'].index(component_status),
+                    key=f"component_status_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[5]:
+                comments = st.text_input(
+                    f"Comments {i+1}",
+                    value=component.get('comments', ''),
+                    key=f"component_comments_{i}",
+                    label_visibility="collapsed"
+                )
+
+            # Update the component data in session state
+            st.session_state.mooring_components[i] = {
+                'type': component_type,
+                'serial_number': serial_number,
+                'length': length,
+                'status': status,
+                'comments': comments
+            }
+
+        st.markdown("---")
+
+        st.subheader("Releases")
+
+        # Initialize session state for releases if not exists
+        if 'releases' not in st.session_state:
+            st.session_state.releases = [
+                {'position': 'Top', 'serial_number': '', 'type': '', 'recovered': ''},
+                {'position': 'Bottom', 'serial_number': '', 'type': '', 'recovered': ''}
+            ]
+
+        # Display releases table header
+        header_cols = st.columns([1, 2, 2, 2])
+        with header_cols[0]:
+            st.write("**Position**")
+        with header_cols[1]:
+            st.write("**S/N**")
+        with header_cols[2]:
+            st.write("**Type**")
+        with header_cols[3]:
+            st.write("**Recovered?**")
+
+        # Display releases rows
+        for i, release in enumerate(st.session_state.releases):
+            cols = st.columns([1, 2, 2, 2])
+
+            with cols[0]:
+                st.write(f"**{release['position']}**")
+
+            with cols[1]:
+                serial_number = st.text_input(
+                    f"{release['position']} S/N",
+                    value=release.get('serial_number', ''),
+                    key=f"release_sn_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[2]:
+                release_type = st.text_input(
+                    f"{release['position']} Type",
+                    value=release.get('type', ''),
+                    key=f"release_type_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[3]:
+                recovered_status = release.get('recovered', '')
+                recovered = st.selectbox(
+                    f"{release['position']} Recovered",
+                    options=['', 'Yes', 'No'],
+                    index=['', 'Yes', 'No'].index(recovered_status) if recovered_status in ['', 'Yes', 'No'] else 0,
+                    key=f"release_recovered_{i}",
+                    label_visibility="collapsed"
+                )
+
+            # Update the release data in session state
+            st.session_state.releases[i] = {
+                'position': release['position'],
+                'serial_number': serial_number,
+                'type': release_type,
+                'recovered': recovered
+            }
+
+        # Add Release Communication field
+        st.write("**Release Comments**")
+        release_communication = st.text_area(
+            "Release Comments",
+            value=st.session_state.get('release_communication', ''),
+            key="release_communication_input",
+            label_visibility="collapsed",
+            height=100
+        )
+
+        st.markdown("---")
+
+        st.subheader("Clock Errors")
+
+        # Initialize session state for clock errors if not exists
+        if 'clock_errors' not in st.session_state:
+            st.session_state.clock_errors = [
+                {'instrument': 'ADCP', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''},
+                {'instrument': 'P1', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''},
+                {'instrument': 'P2', 'serial_number': '', 'gmt_date': '', 'inst_date': '', 'date_error': '', 'gmt_time': '', 'inst_time': '', 'time_error': '', 'file_name': '', 'comments': ''}
+            ]
+
+        # Display clock errors table header
+        header_cols = st.columns([1, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.8])
+        with header_cols[0]:
+            st.write("**Type**")
+        with header_cols[1]:
+            st.write("**S/N**")
+        with header_cols[2]:
+            st.write("**GMT Date**")
+        with header_cols[3]:
+            st.write("**Inst. Date**")
+        with header_cols[4]:
+            st.write("**Date Error**")
+        with header_cols[5]:
+            st.write("**GMT Time**")
+        with header_cols[6]:
+            st.write("**Inst. Time**")
+        with header_cols[7]:
+            st.write("**Time Error**")
+        with header_cols[8]:
+            st.write("**File Name**")
+        with header_cols[9]:
+            st.write("**Comments**")
+
+        # Display clock errors rows
+        for i, clock_error in enumerate(st.session_state.clock_errors):
+            cols = st.columns([1, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2, 1.8])
+
+            with cols[0]:
+                st.write(f"**{clock_error['instrument']}**")
+
+            with cols[1]:
+                serial_number = st.text_input(
+                    f"{clock_error['instrument']} S/N",
+                    value=clock_error.get('serial_number', ''),
+                    key=f"clock_error_sn_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[2]:
+                gmt_date = st.text_input(
+                    f"{clock_error['instrument']} GMT Date",
+                    value=clock_error.get('gmt_date', ''),
+                    key=f"clock_error_gmt_date_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[3]:
+                inst_date = st.text_input(
+                    f"{clock_error['instrument']} Inst. Date",
+                    value=clock_error.get('inst_date', ''),
+                    key=f"clock_error_inst_date_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[4]:
+                date_error = st.text_input(
+                    f"{clock_error['instrument']} Date Error",
+                    value=clock_error.get('date_error', ''),
+                    key=f"clock_error_date_error_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[5]:
+                gmt_time = st.text_input(
+                    f"{clock_error['instrument']} GMT Time",
+                    value=clock_error.get('gmt_time', ''),
+                    key=f"clock_error_gmt_time_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[6]:
+                inst_time = st.text_input(
+                    f"{clock_error['instrument']} Inst. Time",
+                    value=clock_error.get('inst_time', ''),
+                    key=f"clock_error_inst_time_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[7]:
+                time_error = st.text_input(
+                    f"{clock_error['instrument']} Time Error",
+                    value=clock_error.get('time_error', ''),
+                    key=f"clock_error_time_error_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[8]:
+                file_name = st.text_input(
+                    f"{clock_error['instrument']} File Name",
+                    value=clock_error.get('file_name', ''),
+                    key=f"clock_error_file_name_{i}",
+                    label_visibility="collapsed"
+                )
+
+            with cols[9]:
+                comments = st.text_input(
+                    f"{clock_error['instrument']} Comments",
+                    value=clock_error.get('comments', ''),
+                    key=f"clock_error_comments_{i}",
+                    label_visibility="collapsed"
+                )
+
+            # Update the clock error data in session state
+            st.session_state.clock_errors[i] = {
+                'instrument': clock_error['instrument'],
+                'serial_number': serial_number,
+                'gmt_date': gmt_date,
+                'inst_date': inst_date,
+                'date_error': date_error,
+                'gmt_time': gmt_time,
+                'inst_time': inst_time,
+                'time_error': time_error,
+                'file_name': file_name,
+                'comments': comments
+            }
+
+        st.markdown("---")
+
+        st.subheader("General Comments")
+
+        general_comments = st.text_area(
+            "General Comments",
+            value=st.session_state.get('general_comments', ''),
+            key="general_comments_input",
+            label_visibility="collapsed",
+            height=250
+        )
+
+        st.markdown("---")
+
         # Form submission buttons
-        col_button1, col_button2, col_spacer = st.columns([1, 1, 10])
+        col_button1, col_spacer = st.columns([1, 11])
         with col_button1:
             if mode == "Search/Edit" and st.session_state.selected_recovery:
                 submitted = st.form_submit_button("Update", use_container_width=True, type="primary")
             else:
                 submitted = st.form_submit_button("Save", use_container_width=True, type="primary")
-
-        with col_button2:
-            add_instrument = st.form_submit_button("+ Add Instrument", use_container_width=True)
-
-        # Add beacon button (third column if we had one, or handle separately)
-        if st.session_state.get('show_add_beacon_in_form', False):
-            add_beacon = st.form_submit_button("+ Add Beacon", use_container_width=True)
-        else:
-            add_beacon = False
-
-        if add_instrument:
-            # Add a new instrument to the session state with empty type
-            st.session_state.instruments.append({'type': '', 'serial_number': '', 'status': 'OK', 'comments': ''})
-            st.rerun()
-
-        if add_beacon:
-            # Add a new beacon to the session state
-            st.session_state.beacons.append({'type': '', 'serial_number': '', 'status': 'OK', 'comments': ''})
-            st.rerun()
 
         if submitted:
             # Prepare form data including instrumentation and beacons
@@ -880,6 +1400,116 @@ def main():
             beacons_data = {
                 'beacons': st.session_state.get('beacons', [])
             }
+
+            # Prepare recovery info data
+            recovery_info_data = {
+                'release_enable_combined': release_enable_combined,
+                'confirmed_release_combined': confirmed_release_combined,
+                'depth': depth,
+                'final_pre_release_slant_range': final_pre_release_slant_range,
+                'time_float_sighted': time_float_sighted,
+                'first_post_release_slant_range': first_post_release_slant_range,
+                'time_float_on_deck': time_float_on_deck,
+                'time_releases_on_deck': time_releases_on_deck
+            }
+
+            # Prepare mooring components data
+            mooring_components_data = {
+                'components': st.session_state.get('mooring_components', [])
+            }
+
+            # Prepare release system recovery data in the expected format
+            top_release_data = {}
+            bottom_release_data = {}
+
+            for release in st.session_state.get('releases', []):
+                # Convert recovered status back to lost field
+                recovered_status = release.get('recovered', '')
+                if recovered_status == '':
+                    lost_value = None
+                elif recovered_status == 'Yes':
+                    lost_value = False
+                elif recovered_status == 'No':
+                    lost_value = True
+                else:
+                    lost_value = None
+
+                release_dict = {
+                    'serial_number': release.get('serial_number') or None,
+                    'type': release.get('type') or None,
+                    'lost': lost_value
+                }
+
+                if release['position'] == 'Top':
+                    top_release_data = release_dict
+                elif release['position'] == 'Bottom':
+                    bottom_release_data = release_dict
+
+            release_system_recovery_data = {
+                'top_release': top_release_data,
+                'bottom_release': bottom_release_data,
+                'release_communication': release_communication
+            }
+
+            # Prepare clock errors data - convert back to instrument_data_collection format
+            existing_instrument_data = {}
+            if mode == "Search/Edit" and st.session_state.selected_recovery:
+                existing_instrument_data = parse_json_field(st.session_state.selected_recovery.get('instrument_data_collection', '{}'))
+
+            # Update existing instrument data with clock errors
+            clock_errors = st.session_state.get('clock_errors', [])
+            instrument_counter = 0
+
+            for clock_error in clock_errors:
+                if (clock_error.get('serial_number') or clock_error.get('gmt_date') or
+                    clock_error.get('inst_date') or clock_error.get('date_error') or
+                    clock_error.get('gmt_time') or clock_error.get('inst_time') or
+                    clock_error.get('time_error') or clock_error.get('file_name') or
+                    clock_error.get('comments')):
+
+                    instrument_key = f"instrument_{instrument_counter}"
+
+                    # Get existing instrument data or create new
+                    if instrument_key in existing_instrument_data:
+                        instrument_data = existing_instrument_data[instrument_key].copy()
+                    else:
+                        instrument_data = {}
+
+                    # Update with clock error data
+                    if clock_error.get('serial_number'):
+                        instrument_data['serial_number'] = clock_error['serial_number']
+                    if clock_error['instrument'] == 'ADCP':
+                        instrument_data['type'] = 'ADCP'
+                    elif clock_error['instrument'] in ['P1', 'P2']:
+                        instrument_data['type'] = 'SBE39'
+
+                    if clock_error.get('gmt_date'):
+                        instrument_data['gmt_date'] = clock_error['gmt_date'] + ' 00:00:00'
+                    if clock_error.get('inst_date'):
+                        instrument_data['date'] = clock_error['inst_date'] + ' 00:00:00'
+                    if clock_error.get('date_error'):
+                        try:
+                            instrument_data['date_error'] = float(clock_error['date_error'])
+                        except:
+                            instrument_data['date_error'] = None
+                    if clock_error.get('gmt_time'):
+                        instrument_data['gmt_time'] = clock_error['gmt_time']
+                    if clock_error.get('inst_time'):
+                        instrument_data['time'] = clock_error['inst_time']
+                    if clock_error.get('time_error'):
+                        try:
+                            instrument_data['error'] = float(clock_error['time_error'])
+                        except:
+                            instrument_data['error'] = None
+                    if clock_error.get('file_name'):
+                        instrument_data['filename'] = clock_error['file_name']
+                    if clock_error.get('comments'):
+                        instrument_data['clock_comment'] = clock_error['comments']
+
+                    existing_instrument_data[instrument_key] = instrument_data
+                    instrument_counter += 1
+
+            clock_errors_data = existing_instrument_data
 
             form_data = {
                 'mooring_id': mooring_id,
@@ -892,7 +1522,12 @@ def main():
                 'release_fire_time': release_fire_time,
                 'time_on_deck': time_on_deck,
                 'instrumentation': instrumentation_data,
-                'beacons': beacons_data
+                'beacons': beacons_data,
+                'recovery_info': recovery_info_data,
+                'mooring_components': mooring_components_data,
+                'release_system_recovery': release_system_recovery_data,
+                'instrument_data_collection': clock_errors_data,
+                'general_comments': general_comments
             }
 
             # Save record
@@ -911,41 +1546,7 @@ def main():
             else:
                 st.error(f"❌ Error saving recovery: {result}")
 
-    # Outside of form - Add instrument and beacon management buttons
-    if mode in ["Search/Edit", "Add New"]:
-        st.subheader("Management")
 
-        col1, col2, col3, col4 = st.columns([2, 2, 2, 6])
-
-        with col1:
-            if st.button("Remove Last Instrument", disabled=len(st.session_state.get('instruments', [])) <= 0):
-                if len(st.session_state.instruments) > 0:
-                    st.session_state.instruments.pop()
-                    st.rerun()
-
-        with col2:
-            if st.button("Clear All Instruments"):
-                st.session_state.instruments = []
-                st.rerun()
-
-        with col3:
-            if st.button("Add Beacon"):
-                st.session_state.beacons.append({'type': '', 'serial_number': '', 'status': 'OK', 'comments': ''})
-                st.rerun()
-
-        # Beacon management in a second row
-        col5, col6, col7, col8 = st.columns([2, 2, 2, 6])
-
-        with col5:
-            if st.button("Remove Last Beacon", disabled=len(st.session_state.get('beacons', [])) <= 0):
-                if len(st.session_state.beacons) > 0:
-                    st.session_state.beacons.pop()
-                    st.rerun()
-
-        with col6:
-            if st.button("Clear All Beacons"):
-                st.session_state.beacons = []
-                st.rerun()
 
 if __name__ == '__main__':
     main()
