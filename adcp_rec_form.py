@@ -96,6 +96,91 @@ def get_personnel_by_cruise(cruise_name):
     finally:
         conn.close()
 
+def calculate_time_error(gmt_time, inst_time):
+    """Calculate time error as GMT Time - Inst. Time"""
+    if not gmt_time or not inst_time:
+        return ''
+
+    try:
+        from datetime import datetime, timedelta
+
+        # Parse times - assume format HH:MM:SS or HH:MM
+        def parse_time(time_str):
+            time_str = time_str.strip()
+            if ':' in time_str:
+                parts = time_str.split(':')
+                if len(parts) == 2:  # HH:MM
+                    hours, minutes = int(parts[0]), int(parts[1])
+                    seconds = 0
+                elif len(parts) == 3:  # HH:MM:SS
+                    hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
+                else:
+                    return None
+                return hours * 3600 + minutes * 60 + seconds
+            return None
+
+        gmt_seconds = parse_time(gmt_time)
+        inst_seconds = parse_time(inst_time)
+
+        if gmt_seconds is None or inst_seconds is None:
+            return ''
+
+        # Calculate difference in seconds
+        diff_seconds = gmt_seconds - inst_seconds
+
+        # Handle day boundary crossing
+        if diff_seconds > 12 * 3600:  # More than 12 hours positive
+            diff_seconds -= 24 * 3600
+        elif diff_seconds < -12 * 3600:  # More than 12 hours negative
+            diff_seconds += 24 * 3600
+
+        # Format as MM:SS with sign
+        sign = '+' if diff_seconds >= 0 else '-'
+        abs_seconds = abs(diff_seconds)
+        minutes = abs_seconds // 60
+        seconds = abs_seconds % 60
+
+        return f"{sign}{minutes}:{seconds:02d}"
+
+    except (ValueError, TypeError):
+        return ''
+
+def calculate_date_error(gmt_date, inst_date):
+    """Calculate date error as GMT Date - Inst. Date (in days)"""
+    if not gmt_date or not inst_date:
+        return ''
+
+    try:
+        from datetime import datetime
+
+        # Parse dates - assume format YYYY-MM-DD
+        def parse_date(date_str):
+            date_str = date_str.strip()
+            if len(date_str) >= 10:  # At least YYYY-MM-DD
+                date_part = date_str[:10]
+                return datetime.strptime(date_part, "%Y-%m-%d")
+            return None
+
+        gmt_date_obj = parse_date(gmt_date)
+        inst_date_obj = parse_date(inst_date)
+
+        if gmt_date_obj is None or inst_date_obj is None:
+            return ''
+
+        # Calculate difference in days
+        diff_days = (gmt_date_obj - inst_date_obj).days
+
+        # Format with sign
+        if diff_days == 0:
+            return '0'
+        elif diff_days > 0:
+            return f"+{diff_days}"
+        else:
+            return f"{diff_days}"
+
+    except (ValueError, TypeError):
+        return ''
+
 def save_recovery(form_data, record_id=None):
     """Save recovery record to database."""
     conn = get_db_connection()
@@ -651,10 +736,10 @@ def main():
                                 'serial_number': str(instrument.get('serial_number', '')) if instrument.get('serial_number') else '',
                                 'gmt_date': str(instrument.get('gmt_date', ''))[:10] if instrument.get('gmt_date') else '',  # Extract date part
                                 'inst_date': str(instrument.get('date', ''))[:10] if instrument.get('date') else '',  # Extract date part
-                                'date_error': str(instrument.get('date_error', '')) if instrument.get('date_error') is not None else '',
+                                'date_error': '',  # Will be calculated from GMT and Inst dates
                                 'gmt_time': str(instrument.get('gmt_time', '')) if instrument.get('gmt_time') else '',
                                 'inst_time': str(instrument.get('time', '')) if instrument.get('time') else '',
-                                'time_error': str(instrument.get('error', '')) if instrument.get('error') is not None else '',
+                                'time_error': '',  # Will be calculated from GMT and Inst times
                                 'file_name': str(instrument.get('filename', '')) if instrument.get('filename') else '',
                                 'comments': str(instrument.get('clock_comment', '')) if instrument.get('clock_comment') else ''
                             }
@@ -1308,11 +1393,14 @@ def main():
                 )
 
             with cols[4]:
+                # Calculate date error from GMT and Inst dates
+                calculated_date_error = calculate_date_error(gmt_date, inst_date)
                 date_error = st.text_input(
                     f"{clock_error['instrument']} Date Error",
-                    value=clock_error.get('date_error', ''),
+                    value=calculated_date_error,
                     key=f"clock_error_date_error_{i}",
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    disabled=True
                 )
 
             with cols[5]:
@@ -1332,11 +1420,14 @@ def main():
                 )
 
             with cols[7]:
+                # Calculate time error from GMT and Inst times
+                calculated_time_error = calculate_time_error(gmt_time, inst_time)
                 time_error = st.text_input(
                     f"{clock_error['instrument']} Time Error",
-                    value=clock_error.get('time_error', ''),
+                    value=calculated_time_error,
                     key=f"clock_error_time_error_{i}",
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    disabled=True
                 )
 
             with cols[8]:
@@ -1496,11 +1587,7 @@ def main():
                         instrument_data['gmt_time'] = clock_error['gmt_time']
                     if clock_error.get('inst_time'):
                         instrument_data['time'] = clock_error['inst_time']
-                    if clock_error.get('time_error'):
-                        try:
-                            instrument_data['error'] = float(clock_error['time_error'])
-                        except:
-                            instrument_data['error'] = None
+                    # Don't save time_error to database since it's calculated
                     if clock_error.get('file_name'):
                         instrument_data['filename'] = clock_error['file_name']
                     if clock_error.get('comments'):
