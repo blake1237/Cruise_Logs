@@ -6,7 +6,7 @@ from datetime import datetime, date, time
 import os
 
 # Database configuration
-DB_PATH = os.path.expanduser("~/Apps/databases/Cruise_Logs.db")
+DB_PATH = "Cruise_Logs.db"
 
 
 
@@ -481,6 +481,7 @@ def search_deployments(search_criteria):
     if where_clauses:
         query = f"SELECT * FROM deployments_normalized WHERE {' AND '.join(where_clauses)} {order_by}"
         df = pd.read_sql_query(query, conn, params=params, index_col=None, parse_dates=False)
+
     else:
         query = f"SELECT * FROM deployments_normalized {order_by} LIMIT 100"
         df = pd.read_sql_query(query, conn, index_col=None, parse_dates=False)
