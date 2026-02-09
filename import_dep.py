@@ -150,7 +150,7 @@ def build_met_sensors(record):
 
 def build_hardware(record):
     """Build hardware JSON structure"""
-    return json.dumps({
+    hardware_data = {
         "buoy_sn": record.get("Buoy S/N"),
         "insert": record.get("Insert"),
         "anti_theft_cage": record.get("Anti-theft Cage"),
@@ -160,7 +160,17 @@ def build_hardware(record):
         "fairing": record.get("Fairing"),
         "teacup_handle": record.get("Teacup Handle"),
         "software_ver": record.get("Software Version")
-    })
+    }
+
+    # VALIDATION: Ensure no wire-related fields are included in hardware
+    # These fields should ONLY be in nylon_config
+    wire_fields_not_allowed = ['wire_length', 'wire_ln', 'wire_sn', 'wire_age', 'wiresn']
+    for field in wire_fields_not_allowed:
+        if field in hardware_data:
+            print(f"WARNING: Removing {field} from hardware - should be in nylon_config only")
+            del hardware_data[field]
+
+    return json.dumps(hardware_data)
 
 def build_nylon_spools(record):
     """Build nylon_spools JSON structure"""
@@ -182,18 +192,30 @@ def build_nylon_spools(record):
 
 def build_nylon_config(record):
     """Build nylon_config JSON structure"""
-    return json.dumps({
+    nylon_data = {
         "nylon_below_release": record.get("Below release"),
         "nylon_cut_length": record.get("NylonCutLn"),
         "total_nylon": record.get("Total nylon"),
         "wiresn": record.get("WireSN"),
-        "hardware_length": record.get("Hardware Ln"),
         "wire_ln": record.get("Wire Ln"),
         "projected_scope": record.get("Projected Scope"),
         "wire_age": record.get("Wire Age"),
         "topsecsn": record.get("TopSecSN"),
         "top_sec_usage": record.get("Top Sec Usage")
-    })
+    }
+
+    # VALIDATION: Hardware length should NOT be in nylon_config
+    # It belongs in the hardware section only
+    if record.get("Hardware Ln"):
+        print(f"INFO: Hardware Ln ({record.get('Hardware Ln')}) belongs in hardware section, not nylon_config")
+
+    # VALIDATION: Ensure wire_ln is the correct field name (not wire_length)
+    if 'wire_length' in nylon_data:
+        print("WARNING: Found wire_length in nylon_config - converting to wire_ln")
+        nylon_data['wire_ln'] = nylon_data['wire_length']
+        del nylon_data['wire_length']
+
+    return json.dumps(nylon_data)
 
 def build_subsurface_sensors(record):
     """Build subsurface_sensors JSON array"""
@@ -251,9 +273,9 @@ def build_acoustic_releases(record):
             "sn": egg_sn_1,
             "int_freq": record.get("rel8 EGGSN1::INTERROGATE FREQ"),
             "reply_freq": record.get("rel8 EGGSN1::REPLY FREQ"),
-            "cmd_1_reply": record.get("rel8 EGGSN1::CMD 1/A CODE-FUNCTION-REPLY"),
-            "cmd_2_reply": record.get("rel8 EGGSN1::CMD 2/B CODE-FUNCTION-REPLY"),
-            "cmd_3_reply": record.get("rel8 EGGSN1::CMD 3/C CODE-FUNCTION-REPLY")
+            "release": record.get("rel8 EGGSN1::CMD 1/A CODE-FUNCTION-REPLY"),
+            "enable": record.get("rel8 EGGSN1::CMD 2/B CODE-FUNCTION-REPLY"),
+            "disable": record.get("rel8 EGGSN1::CMD 3/C CODE-FUNCTION-REPLY")
         }
 
     # Release 2
@@ -265,9 +287,9 @@ def build_acoustic_releases(record):
             "sn": egg_sn_2,
             "int_freq": record.get("rel8 EGGSN2::INTERROGATE FREQ"),
             "reply_freq": record.get("rel8 EGGSN2::REPLY FREQ"),
-            "cmd_1_reply": record.get("rel8 EGGSN2::CMD 1/A CODE-FUNCTION-REPLY"),
-            "cmd_2_reply": record.get("rel8 EGGSN2::CMD 2/B CODE-FUNCTION-REPLY"),
-            "cmd_3_reply": record.get("rel8 EGGSN2::CMD 3/C CODE-FUNCTION-REPLY")
+            "release": record.get("rel8 EGGSN2::CMD 1/A CODE-FUNCTION-REPLY"),
+            "enable": record.get("rel8 EGGSN2::CMD 2/B CODE-FUNCTION-REPLY"),
+            "disable": record.get("rel8 EGGSN2::CMD 3/C CODE-FUNCTION-REPLY")
         }
 
     return json.dumps(releases)
@@ -361,6 +383,8 @@ def insert_deployment_record(cursor, record):
     longitude = record.get("Anchor Drp Long")
     depth = record.get("Corr Depth") or record.get("UncorrDepth") or record.get("TargetDepth")
 
+    print(f"Processing record: {mooringid} - {cruise}")
+
     # JSON fields
     deployment_info = build_deployment_info(record)
     met_sensors = build_met_sensors(record)
@@ -372,6 +396,23 @@ def insert_deployment_record(cursor, record):
     anchor_drop = build_anchor_drop(record)
     met_obs = build_met_obs(record)
     flyby = build_flyby(record)
+
+    # VALIDATION: Cross-check for wire field conflicts
+    import json
+    hardware_dict = json.loads(hardware)
+    nylon_config_dict = json.loads(nylon_config)
+
+    wire_conflicts = []
+    if 'wire_length' in hardware_dict:
+        wire_conflicts.append(f"wire_length in hardware: {hardware_dict['wire_length']}")
+    if 'wire_ln' in nylon_config_dict:
+        wire_conflicts.append(f"wire_ln in nylon_config: {nylon_config_dict['wire_ln']}")
+
+    if len(wire_conflicts) > 1:
+        print(f"⚠️ WIRE FIELD VALIDATION: Multiple wire length fields detected:")
+        for conflict in wire_conflicts:
+            print(f"   - {conflict}")
+        print(f"   Wire length should ONLY be in nylon_config as wire_ln")
 
     # Insert the record
     insert_sql = """
