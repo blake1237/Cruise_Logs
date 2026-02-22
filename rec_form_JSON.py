@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
 # Database configuration
-DB_PATH = os.path.expanduser("~/Apps/databases/Cruise_Logs.db")
+DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
 
 if not os.path.exists(DB_PATH):
     print(f"WARNING: Database file not found at {DB_PATH}")
@@ -2563,6 +2563,7 @@ def main():
             raw_battransmit = record.get('battransmit')
             raw_batdate = record.get('batdate')
             raw_gmt_tube = record.get('gmt_tube')
+            raw_instr_time_tube = record.get('instr_time_tube')
             raw_clk_err_tube = record.get('clk_err_tube')
 
             # Convert None to empty string for form fields
@@ -2598,13 +2599,27 @@ def main():
                 else:
                     default_tube_actual_time = time_str
 
-            default_tube_inst_time = ''  # Will be set from instrument_timing if available
+            # Format tube instrument time from instr_time_tube column as fallback
+            default_tube_inst_time = ''
+            if raw_instr_time_tube is not None and raw_instr_time_tube != '':
+                time_str = str(raw_instr_time_tube)
+                if '.' in time_str:  # Remove decimal seconds
+                    time_str = time_str.split('.')[0]
+                if ':' in time_str:
+                    time_parts = time_str.split(':')
+                    if len(time_parts) >= 3:
+                        default_tube_inst_time = f"{time_parts[0]}:{time_parts[1]}:{time_parts[2]}"
+                    elif len(time_parts) == 2:
+                        default_tube_inst_time = f"{time_parts[0]}:{time_parts[1]}:00"
+                else:
+                    default_tube_inst_time = time_str
+
             default_tube_clock_error = format_clock_error_to_mmss(raw_clk_err_tube) if raw_clk_err_tube is not None else ''
 
             # Get instrument_timing data
             instrument_timing_raw = record.get('instrument_timing', '')
 
-            # Also check instrument_timing for tube entry
+            # Also check instrument_timing for tube entry (this overrides the column value if present)
             if instrument_timing_raw:
                 try:
                     import json
@@ -2989,7 +3004,7 @@ def main():
         with col3:
             cruise = st.text_input("Cruise *", value=default_cruise, key="cruise")
         with col4:
-            mooring_options = ["", "Taut", "Slack"]
+            mooring_options = ["", "Tflex", "Standard Atlas / Taut", "Reverse Catinary", "Slack"]
             default_mooring_value = default_mooring_type if 'default_mooring_type' in locals() else ""
             try:
                 mooring_index = mooring_options.index(default_mooring_value)
