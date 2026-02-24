@@ -19,7 +19,7 @@ def search_recoveries(search_criteria=None):
             SELECT id, mooring_id, recovery_metadata, recovery_location, recovery_timing,
                    instrument_data_collection, mooring_line_recovery, release_system_recovery,
                    beacon_recovery, flasher_recovery, subsurface_recovery, cruise_information,
-                   data_quality_analysis, instrumentation, beacons
+                   data_quality_analysis, instrumentation, beacons, general_comments, recovery_info
             FROM adcp_rec2 WHERE 1=1
         """
         params = []
@@ -43,7 +43,7 @@ def search_recoveries(search_criteria=None):
         columns = ['id', 'mooring_id', 'recovery_metadata', 'recovery_location', 'recovery_timing',
                   'instrument_data_collection', 'mooring_line_recovery', 'release_system_recovery',
                   'beacon_recovery', 'flasher_recovery', 'subsurface_recovery', 'cruise_information',
-                  'data_quality_analysis', 'instrumentation', 'beacons']
+                  'data_quality_analysis', 'instrumentation', 'beacons', 'general_comments', 'recovery_info']
         results = cursor.fetchall()
 
         if results:
@@ -208,7 +208,7 @@ def save_recovery(form_data, record_id=None):
         recovery_timing = {
             "confirmed_release_time": form_data.get('release_fire_time', ''),
             "release_enable_time": form_data.get('release_enable_time', ''),
-            "rel_enable_date": form_data.get('rel_enable_date', ''),
+            "release_enable_date": form_data.get('release_enable_date', ''),
             "float_ball_on_deck": form_data.get('time_on_deck', ''),
             "float_ball_sighted_on_surface": form_data.get('float_ball_sighted', ''),
             "last_release_on_deck": form_data.get('last_release_on_deck', '')
@@ -814,7 +814,7 @@ def main():
 
         # Combine release enable time and date with proper formatting
         enable_time = recovery_timing.get('release_enable_time', '') if recovery_timing else ''
-        enable_date = recovery_timing.get('rel_enable_date', '') if recovery_timing else ''
+        enable_date = recovery_timing.get('release_enable_date', '') if recovery_timing else ''
 
         # Format enable date to YYYY-MM-DD
         formatted_enable_date = ''
@@ -826,19 +826,34 @@ def main():
             except:
                 formatted_enable_date = enable_date.split()[0] if ' ' in enable_date else enable_date
 
-        default_release_enable_combined = f"{formatted_enable_date} / {enable_time}".strip() if formatted_enable_date or enable_time else ''
+        # Build combined datetime with proper separator handling
+        if formatted_enable_date and enable_time:
+            default_release_enable_combined = f"{formatted_enable_date} / {enable_time}"
+        elif formatted_enable_date:
+            default_release_enable_combined = formatted_enable_date
+        elif enable_time:
+            default_release_enable_combined = enable_time
+        else:
+            default_release_enable_combined = ''
 
         # Combine confirmed release time with enable date (same date)
         confirmed_time = recovery_timing.get('confirmed_release_time', '') if recovery_timing else ''
 
         # Use the same formatted date as release enable date
-        default_confirmed_release_combined = f"{formatted_enable_date} / {confirmed_time}".strip() if formatted_enable_date or confirmed_time else ''
-        default_depth = recovery_metadata.get('depth', '') if recovery_metadata else ''
+        if formatted_enable_date and confirmed_time:
+            default_confirmed_release_combined = f"{formatted_enable_date} / {confirmed_time}"
+        elif formatted_enable_date:
+            default_confirmed_release_combined = formatted_enable_date
+        elif confirmed_time:
+            default_confirmed_release_combined = confirmed_time
+        else:
+            default_confirmed_release_combined = ''
+        default_depth = recovery_location.get('depth', '') if recovery_location else ''
 
-        default_final_pre_release_slant_range = recovery_location.get('slant_ranges', '') if recovery_location else ''
+        default_final_pre_release_slant_range = release_system_data.get('slant_ranges', '') if release_system_data else ''
         default_time_float_sighted = recovery_timing.get('float_ball_sighted_on_surface', '') if recovery_timing else ''
         # Handle null values for post_release_slant_ranges
-        post_release_slant = recovery_location.get('post_release_slant_ranges') if recovery_location else None
+        post_release_slant = release_system_data.get('post_release_slant_ranges') if release_system_data else None
         default_first_post_release_slant_range = post_release_slant if post_release_slant is not None else ''
         default_time_float_on_deck = recovery_timing.get('float_ball_on_deck', '') if recovery_timing else ''
         default_time_releases_on_deck = recovery_timing.get('last_release_on_deck', '') if recovery_timing else ''
@@ -847,9 +862,14 @@ def main():
         default_recovery_date = date.today()
         if recovery_metadata.get('recovery_date'):
             try:
+                # Try datetime format first
                 default_recovery_date = datetime.strptime(recovery_metadata['recovery_date'], "%Y-%m-%d %H:%M:%S").date()
             except:
-                pass
+                try:
+                    # Try date-only format
+                    default_recovery_date = datetime.strptime(recovery_metadata['recovery_date'], "%Y-%m-%d").date()
+                except:
+                    pass
     else:
         # Defaults for Add New mode
         default_mooring_id = ""
