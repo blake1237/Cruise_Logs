@@ -1894,12 +1894,18 @@ def main():
         st.session_state.mode = "Search/Edit"
     if 'selected_recovery' not in st.session_state:
         st.session_state.selected_recovery = None
+    if 'widget_key_suffix' not in st.session_state:
+        st.session_state.widget_key_suffix = "_new"
 
     # Mode selection
     col1, col2 = st.columns([1, 3])
     with col1:
         mode = st.radio("Mode", ["Search/Edit", "Add New"], key="mode_selector")
         st.session_state.mode = mode
+
+    # Set widget_key_suffix for Add New mode
+    if mode == "Add New":
+        st.session_state.widget_key_suffix = "_new"
 
     # Get list of sites for dropdown
     available_sites = get_distinct_sites()
@@ -1990,12 +1996,14 @@ def main():
 
                 st.session_state.selected_recovery = current_record_dict
 
-
+                # Update widget_key_suffix for this specific record
+                record_id = current_record_dict.get('id')
+                st.session_state.widget_key_suffix = f"_edit_{record_id}"
 
             # Add export button at the top
             export_cols = st.columns([3, 1])
             with export_cols[1]:
-                if st.button("📄 Export to XML", key="top_export", use_container_width=True):
+                if st.button("📄 Export to XML", key=f"top_export{st.session_state.widget_key_suffix}", use_container_width=True):
                     try:
                         xml_content = export_record_to_xml(current_record_dict)
                         # Generate filename
@@ -2011,7 +2019,7 @@ def main():
                             data=xml_content,
                             file_name=filename,
                             mime="application/xml",
-                            key="top_download_xml"
+                            key=f"top_download_xml{widget_key_suffix}"
                         )
                         st.success("✅ XML export ready for download!")
                     except Exception as e:
@@ -2042,6 +2050,9 @@ def main():
         st.subheader("Add New Recovery")
     else:
         st.subheader("Edit Recovery")
+
+    # Get widget_key_suffix from session state for use in form widgets
+    widget_key_suffix = st.session_state.widget_key_suffix
 
     with st.form("recovery_form"):
         # Initialize form values
@@ -2987,22 +2998,22 @@ def main():
             site_selection = st.selectbox("Site",
                                         options=site_options,
                                         index=site_index,
-                                        key="site_dropdown")
+                                        key=f"site_dropdown{widget_key_suffix}")
 
             # If "Other" is selected, show a text input
             if site_selection == "Other (specify below)":
                 site = st.text_input("Specify site",
                                    value="",
-                                   key="site_custom")
+                                   key=f"site_custom{widget_key_suffix}")
             else:
                 site = site_selection
         with col2:
-            mooringid = st.text_input("Mooring ID *", value=default_mooringid, key="mooringid", placeholder="XX-###X (Ex. PM794A)")
+            mooringid = st.text_input("Mooring ID *", value=default_mooringid, key=f"mooringid{widget_key_suffix}", placeholder="XX-###X (Ex. PM794A)")
 
         # Second row: Cruise and Mooring Type
         col3, col4 = st.columns(2)
         with col3:
-            cruise = st.text_input("Cruise *", value=default_cruise, key="cruise")
+            cruise = st.text_input("Cruise *", value=default_cruise, key=f"cruise{widget_key_suffix}")
         with col4:
             mooring_options = ["", "Tflex", "Standard Atlas / Taut", "Reverse Catinary", "Slack"]
             default_mooring_value = default_mooring_type if 'default_mooring_type' in locals() else ""
@@ -3013,7 +3024,7 @@ def main():
             mooring_type = st.selectbox("Mooring Type",
                                        options=mooring_options,
                                        index=mooring_index,
-                                       key="mooring_type")
+                                       key=f"mooring_type{widget_key_suffix}")
 
         # Third row: Argos Latitude and Argos Longitude
         col5, col6 = st.columns(2)
@@ -3021,14 +3032,14 @@ def main():
             argos_latitude = st.text_input(
                 "Argos Latitude",
                 value=default_argos_latitude,
-                key="argos_latitude",
+                key=f"argos_latitude{widget_key_suffix}",
                 help="Argos latitude coordinates"
             )
         with col6:
             argos_longitude = st.text_input(
                 "Argos Longitude",
                 value=default_argos_longitude,
-                key="argos_longitude",
+                key=f"argos_longitude{widget_key_suffix}",
                 help="Argos longitude coordinates"
             )
 
@@ -3036,7 +3047,7 @@ def main():
         mooring_status = st.text_area("Mooring Status",
                                value=default_mooring_status,
                                height=100,
-                               key="mooring_status",
+                               key=f"mooring_status{widget_key_suffix}",
                                help="Enter the status of the mooring prior to departure")
 
         # Personnel field
@@ -3050,7 +3061,7 @@ def main():
             st.markdown('<span style="font-weight:bold;">Touch Time (HH:mm)</span>', unsafe_allow_html=True)
             touch_time = st.text_input("Touch Time",
                                     value=default_touch_time,
-                                    key="touch_time",
+                                    key=f"touch_time{widget_key_suffix}",
                                     label_visibility="collapsed",
                                     placeholder="HH:mm",
                                     help="Enter time in HH:mm format (24-hour). Record the time when the mooring was first touched or contacted")
@@ -3098,24 +3109,24 @@ def main():
             ship_date = st.text_input(
                 "Ship Date (MM/DD/YYYY)",
                 value=default_ship_date.strftime("%m/%d/%Y") if (default_ship_date and hasattr(default_ship_date, "strftime")) else "",
-                key="ship_date_text",
+                key=f"ship_date_text{widget_key_suffix}",
                 label_visibility="collapsed",
                 placeholder="MM/DD/YYYY"
             )
         with ship_cols[2]:
-            ship_time = st.text_input("Ship Time", value=default_ship_time, key="ship_time", label_visibility="collapsed", placeholder="HH:mm")
+            ship_time = st.text_input("Ship Time", value=default_ship_time, key=f"ship_time{widget_key_suffix}", label_visibility="collapsed", placeholder="HH:mm")
         with ship_cols[3]:
-            ship_wind_dir = st.text_input("Ship Wind Dir", value=default_ship_wind_dir, key="ship_wind_dir", label_visibility="collapsed", placeholder="000-360")
+            ship_wind_dir = st.text_input("Ship Wind Dir", value=default_ship_wind_dir, key=f"ship_wind_dir{widget_key_suffix}", label_visibility="collapsed", placeholder="000-360")
         with ship_cols[4]:
-            ship_wind_spd = st.text_input("Ship Wind Spd", value=default_ship_wind_spd, key="ship_wind_spd", label_visibility="collapsed")
+            ship_wind_spd = st.text_input("Ship Wind Spd", value=default_ship_wind_spd, key=f"ship_wind_spd{widget_key_suffix}", label_visibility="collapsed")
         with ship_cols[5]:
-            ship_air_temp = st.text_input("Ship Air Temp", value=default_ship_air_temp, key="ship_air_temp", label_visibility="collapsed")
+            ship_air_temp = st.text_input("Ship Air Temp", value=default_ship_air_temp, key=f"ship_air_temp{widget_key_suffix}", label_visibility="collapsed")
         with ship_cols[6]:
-            ship_sst = st.text_input("Ship SST", value=default_ship_sst, key="ship_sst", label_visibility="collapsed")
+            ship_sst = st.text_input("Ship SST", value=default_ship_sst, key=f"ship_sst{widget_key_suffix}", label_visibility="collapsed")
         with ship_cols[7]:
-            ship_ssc = st.text_input("Ship SSC", value=default_ship_ssc, key="ship_ssc", label_visibility="collapsed")
+            ship_ssc = st.text_input("Ship SSC", value=default_ship_ssc, key=f"ship_ssc{widget_key_suffix}", label_visibility="collapsed")
         with ship_cols[8]:
-            ship_rh = st.text_input("Ship RH", value=default_ship_rh, key="ship_rh", label_visibility="collapsed")
+            ship_rh = st.text_input("Ship RH", value=default_ship_rh, key=f"ship_rh{widget_key_suffix}", label_visibility="collapsed")
 
         # Buoy row
         buoy_cols = st.columns([0.8, 1, 1, 1, 1.2, 1, 0.8, 0.8, 0.8])
@@ -3125,24 +3136,24 @@ def main():
             buoy_date = st.text_input(
                 "Buoy Date (MM/DD/YYYY)",
                 value=default_buoy_date.strftime("%m/%d/%Y") if (default_buoy_date and hasattr(default_buoy_date, "strftime")) else "",
-                key="buoy_date_text",
+                key=f"buoy_date_text{widget_key_suffix}",
                 label_visibility="collapsed",
                 placeholder="MM/DD/YYYY"
             )
         with buoy_cols[2]:
-            buoy_time = st.text_input("Buoy Time", value=default_buoy_time, key="buoy_time", label_visibility="collapsed", placeholder="HH:mm")
+            buoy_time = st.text_input("Buoy Time", value=default_buoy_time, key=f"buoy_time{widget_key_suffix}", label_visibility="collapsed", placeholder="HH:mm")
         with buoy_cols[3]:
-            buoy_wind_dir = st.text_input("Buoy Wind Dir", value=default_buoy_wind_dir, key="buoy_wind_dir", label_visibility="collapsed", placeholder="000-360")
+            buoy_wind_dir = st.text_input("Buoy Wind Dir", value=default_buoy_wind_dir, key=f"buoy_wind_dir{widget_key_suffix}", label_visibility="collapsed", placeholder="000-360")
         with buoy_cols[4]:
-            buoy_wind_spd = st.text_input("Buoy Wind Spd", value=default_buoy_wind_spd, key="buoy_wind_spd", label_visibility="collapsed")
+            buoy_wind_spd = st.text_input("Buoy Wind Spd", value=default_buoy_wind_spd, key=f"buoy_wind_spd{widget_key_suffix}", label_visibility="collapsed")
         with buoy_cols[5]:
-            buoy_air_temp = st.text_input("Buoy Air Temp", value=default_buoy_air_temp, key="buoy_air_temp", label_visibility="collapsed")
+            buoy_air_temp = st.text_input("Buoy Air Temp", value=default_buoy_air_temp, key=f"buoy_air_temp{widget_key_suffix}", label_visibility="collapsed")
         with buoy_cols[6]:
-            buoy_sst = st.text_input("Buoy SST", value=default_buoy_sst, key="buoy_sst", label_visibility="collapsed")
+            buoy_sst = st.text_input("Buoy SST", value=default_buoy_sst, key=f"buoy_sst{widget_key_suffix}", label_visibility="collapsed")
         with buoy_cols[7]:
-            buoy_ssc = st.text_input("Buoy SSC", value=default_buoy_ssc, key="buoy_ssc", label_visibility="collapsed")
+            buoy_ssc = st.text_input("Buoy SSC", value=default_buoy_ssc, key=f"buoy_ssc{widget_key_suffix}", label_visibility="collapsed")
         with buoy_cols[8]:
-            buoy_rh = st.text_input("Buoy RH", value=default_buoy_rh, key="buoy_rh", label_visibility="collapsed")
+            buoy_rh = st.text_input("Buoy RH", value=default_buoy_rh, key=f"buoy_rh{widget_key_suffix}", label_visibility="collapsed")
 
         # Release Info section
         st.markdown("---")
@@ -3151,23 +3162,23 @@ def main():
         # First row: Release Latitude and Longitude
         col_rel1, col_rel2 = st.columns(2)
         with col_rel1:
-            release_latitude = st.text_input("Latitude", value=default_release_latitude, key="release_latitude")
+            release_latitude = st.text_input("Latitude", value=default_release_latitude, key=f"release_latitude{widget_key_suffix}")
         with col_rel2:
-            release_longitude = st.text_input("Longitude", value=default_release_longitude, key="release_longitude")
+            release_longitude = st.text_input("Longitude", value=default_release_longitude, key=f"release_longitude{widget_key_suffix}")
 
         # Second row: Fire Time and Fire Date
         col_fire1, col_fire2 = st.columns(2)
         with col_fire1:
-            fire_time = st.text_input("Fire Time", value=default_fire_time, key="fire_time", placeholder="HH:mm")
+            fire_time = st.text_input("Fire Time", value=default_fire_time, key=f"fire_time{widget_key_suffix}", placeholder="HH:mm")
         with col_fire2:
-            fire_date = st.text_input("Fire Date", value=default_fire_date, key="fire_date", placeholder="MM/DD/YYYY")
+            fire_date = st.text_input("Fire Date", value=default_fire_date, key=f"fire_date{widget_key_suffix}", placeholder="MM/DD/YYYY")
 
         # Third row: Time on Deck and Date on Deck
         col_deck1, col_deck2 = st.columns(2)
         with col_deck1:
-            time_on_deck = st.text_input("Time on Deck", value=default_time_on_deck, key="time_on_deck", placeholder="HH:mm")
+            time_on_deck = st.text_input("Time on Deck", value=default_time_on_deck, key=f"time_on_deck{widget_key_suffix}", placeholder="HH:mm")
         with col_deck2:
-            date_on_deck = st.text_input("Date on Deck", value=default_date_on_deck, key="date_on_deck", placeholder="MM/DD/YYYY")
+            date_on_deck = st.text_input("Date on Deck", value=default_date_on_deck, key=f"date_on_deck{widget_key_suffix}", placeholder="MM/DD/YYYY")
 
         # Create table header
         release_headers = st.columns([1.0, 0.8, 1.0, 0.8, 0.8, 0.8, 0.8])
@@ -3191,41 +3202,41 @@ def main():
         with release1_cols[0]:
             st.write("**Release 1**")
         with release1_cols[1]:
-            rel_type_1 = st.text_input("Release 1 Type", value=default_rel_type_1, key="rel_type_1", label_visibility="collapsed")
+            rel_type_1 = st.text_input("Release 1 Type", value=default_rel_type_1, key=f"rel_type_1{widget_key_suffix}", label_visibility="collapsed")
         with release1_cols[2]:
-            rel_sn_1 = st.text_input("Release 1 S/N", value=default_rel_sn_1, key="rel_sn_1", label_visibility="collapsed")
+            rel_sn_1 = st.text_input("Release 1 S/N", value=default_rel_sn_1, key=f"rel_sn_1{widget_key_suffix}", label_visibility="collapsed")
         with release1_cols[3]:
             recovered_options = ["", "Yes", "No"]
             rel_1_rec_index = 0
             if default_rel_1_rec and default_rel_1_rec in recovered_options:
                 rel_1_rec_index = recovered_options.index(default_rel_1_rec)
-            rel_1_rec = st.selectbox("Release 1 Recovered", options=recovered_options, index=rel_1_rec_index, key="rel_1_rec", label_visibility="collapsed")
+            rel_1_rec = st.selectbox("Release 1 Recovered", options=recovered_options, index=rel_1_rec_index, key=f"rel_1_rec{widget_key_suffix}", label_visibility="collapsed")
         with release1_cols[4]:
-            release1_release = st.text_input("Release 1 Release", value=default_release1_release, key="release1_release", label_visibility="collapsed")
+            release1_release = st.text_input("Release 1 Release", value=default_release1_release, key=f"release1_release{widget_key_suffix}", label_visibility="collapsed")
         with release1_cols[5]:
-            release1_disable = st.text_input("Release 1 Disable", value=default_release1_disable, key="release1_disable", label_visibility="collapsed")
+            release1_disable = st.text_input("Release 1 Disable", value=default_release1_disable, key=f"release1_disable{widget_key_suffix}", label_visibility="collapsed")
         with release1_cols[6]:
-            release1_enable = st.text_input("Release 1 Enable", value=default_release1_enable, key="release1_enable", label_visibility="collapsed")
+            release1_enable = st.text_input("Release 1 Enable", value=default_release1_enable, key=f"release1_enable{widget_key_suffix}", label_visibility="collapsed")
 
         # Release 2 row
         release2_cols = st.columns([1.0, 0.8, 1.0, 0.8, 0.8, 0.8, 0.8])
         with release2_cols[0]:
             st.write("**Release 2**")
         with release2_cols[1]:
-            rel_type_2 = st.text_input("Release 2 Type", value=default_rel_type_2, key="rel_type_2", label_visibility="collapsed")
+            rel_type_2 = st.text_input("Release 2 Type", value=default_rel_type_2, key=f"rel_type_2{widget_key_suffix}", label_visibility="collapsed")
         with release2_cols[2]:
-            rel_sn_2 = st.text_input("Release 2 S/N", value=default_rel_sn_2, key="rel_sn_2", label_visibility="collapsed")
+            rel_sn_2 = st.text_input("Release 2 S/N", value=default_rel_sn_2, key=f"rel_sn_2{widget_key_suffix}", label_visibility="collapsed")
         with release2_cols[3]:
             rel_2_rec_index = 0
             if default_rel_2_rec and default_rel_2_rec in recovered_options:
                 rel_2_rec_index = recovered_options.index(default_rel_2_rec)
-            rel_2_rec = st.selectbox("Release 2 Recovered", options=recovered_options, index=rel_2_rec_index, key="rel_2_rec", label_visibility="collapsed")
+            rel_2_rec = st.selectbox("Release 2 Recovered", options=recovered_options, index=rel_2_rec_index, key=f"rel_2_rec{widget_key_suffix}", label_visibility="collapsed")
         with release2_cols[4]:
-            release2_release = st.text_input("Release 2 Release", value=default_release2_release, key="release2_release", label_visibility="collapsed")
+            release2_release = st.text_input("Release 2 Release", value=default_release2_release, key=f"release2_release{widget_key_suffix}", label_visibility="collapsed")
         with release2_cols[5]:
-            release2_disable = st.text_input("Release 2 Disable", value=default_release2_disable, key="release2_disable", label_visibility="collapsed")
+            release2_disable = st.text_input("Release 2 Disable", value=default_release2_disable, key=f"release2_disable{widget_key_suffix}", label_visibility="collapsed")
         with release2_cols[6]:
-            release2_enable = st.text_input("Release 2 Enable", value=default_release2_enable, key="release2_enable", label_visibility="collapsed")
+            release2_enable = st.text_input("Release 2 Enable", value=default_release2_enable, key=f"release2_enable{widget_key_suffix}", label_visibility="collapsed")
 
         # Release Problems/Comments
         st.markdown("#### Release Problems/Comments")
@@ -3233,7 +3244,7 @@ def main():
             "Release Problems/Comments",
             value=default_release_comments,
             height=100,
-            key="release_comments",
+            key=f"release_comments{widget_key_suffix}",
             label_visibility="collapsed",
             help="Enter any problems or comments regarding the releases"
         )
@@ -3258,7 +3269,7 @@ def main():
         with tube_cols[0]:
             st.write("Tube")
         with tube_cols[1]:
-            tube_sn = st.text_input("Tube S/N", value=default_tube_sn, key="tube_sn", label_visibility="collapsed")
+            tube_sn = st.text_input("Tube S/N", value=default_tube_sn, key=f"tube_sn{widget_key_suffix}", label_visibility="collapsed")
         with tube_cols[2]:
             condition_options = ["", "OK", "Lost", "Damaged", "Fouled"]
             # Default to blank if no S/N, otherwise default to "OK"
@@ -3272,16 +3283,16 @@ def main():
                             break
             else:
                 tube_condition_index = 0  # Default to blank when no S/N
-            tube_condition = st.selectbox("Tube Condition", options=condition_options, index=tube_condition_index, key="tube_condition", label_visibility="collapsed")
+            tube_condition = st.selectbox("Tube Condition", options=condition_options, index=tube_condition_index, key=f"tube_condition{widget_key_suffix}", label_visibility="collapsed")
         with tube_cols[3]:
-            tube_details = st.text_input("Tube Details", value=default_tube_details, key="tube_details", label_visibility="collapsed")
+            tube_details = st.text_input("Tube Details", value=default_tube_details, key=f"tube_details{widget_key_suffix}", label_visibility="collapsed")
 
         # PTT/Hexid row
         ptt_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with ptt_cols[0]:
             st.write("PTT/Hexid")
         with ptt_cols[1]:
-            ptt_hexid_sn = st.text_input("PTT/Hexid S/N", value=default_ptt_hexid_sn, key="ptt_hexid_sn", label_visibility="collapsed")
+            ptt_hexid_sn = st.text_input("PTT/Hexid S/N", value=default_ptt_hexid_sn, key=f"ptt_hexid_sn{widget_key_suffix}", label_visibility="collapsed")
         with ptt_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if ptt_hexid_sn:
@@ -3294,16 +3305,16 @@ def main():
                             break
             else:
                 ptt_condition_index = 0  # Default to blank when no S/N
-            ptt_hexid_condition = st.selectbox("PTT/Hexid Condition", options=condition_options, index=ptt_condition_index, key="ptt_hexid_condition", label_visibility="collapsed")
+            ptt_hexid_condition = st.selectbox("PTT/Hexid Condition", options=condition_options, index=ptt_condition_index, key=f"ptt_hexid_condition{widget_key_suffix}", label_visibility="collapsed")
         with ptt_cols[3]:
-            ptt_hexid_details = st.text_input("PTT/Hexid Details", value=default_ptt_hexid_details, key="ptt_hexid_details", label_visibility="collapsed")
+            ptt_hexid_details = st.text_input("PTT/Hexid Details", value=default_ptt_hexid_details, key=f"ptt_hexid_details{widget_key_suffix}", label_visibility="collapsed")
 
         # AT/RH row
         at_rh_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with at_rh_cols[0]:
             st.write("AT/RH")
         with at_rh_cols[1]:
-            at_rh_sn = st.text_input("AT/RH S/N", value=default_at_rh_sn, key="at_rh_sn", label_visibility="collapsed")
+            at_rh_sn = st.text_input("AT/RH S/N", value=default_at_rh_sn, key=f"at_rh_sn{widget_key_suffix}", label_visibility="collapsed")
         with at_rh_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if at_rh_sn:
@@ -3316,16 +3327,16 @@ def main():
                             break
             else:
                 at_rh_condition_index = 0  # Default to blank when no S/N
-            at_rh_condition = st.selectbox("AT/RH Condition", options=condition_options, index=at_rh_condition_index, key="at_rh_condition", label_visibility="collapsed")
+            at_rh_condition = st.selectbox("AT/RH Condition", options=condition_options, index=at_rh_condition_index, key=f"at_rh_condition{widget_key_suffix}", label_visibility="collapsed")
         with at_rh_cols[3]:
-            at_rh_details = st.text_input("AT/RH Details", value=default_at_rh_details, key="at_rh_details", label_visibility="collapsed")
+            at_rh_details = st.text_input("AT/RH Details", value=default_at_rh_details, key=f"at_rh_details{widget_key_suffix}", label_visibility="collapsed")
 
         # Wind row
         wind_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with wind_cols[0]:
             st.write("Wind")
         with wind_cols[1]:
-            wind_sn = st.text_input("Wind S/N", value=default_wind_sn, key="wind_sn", label_visibility="collapsed")
+            wind_sn = st.text_input("Wind S/N", value=default_wind_sn, key=f"wind_sn{widget_key_suffix}", label_visibility="collapsed")
         with wind_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if wind_sn:
@@ -3338,16 +3349,16 @@ def main():
                             break
             else:
                 wind_condition_index = 0  # Default to blank when no S/N
-            wind_condition = st.selectbox("Wind Condition", options=condition_options, index=wind_condition_index, key="wind_condition", label_visibility="collapsed")
+            wind_condition = st.selectbox("Wind Condition", options=condition_options, index=wind_condition_index, key=f"wind_condition{widget_key_suffix}", label_visibility="collapsed")
         with wind_cols[3]:
-            wind_details = st.text_input("Wind Details", value=default_wind_details, key="wind_details", label_visibility="collapsed")
+            wind_details = st.text_input("Wind Details", value=default_wind_details, key=f"wind_details{widget_key_suffix}", label_visibility="collapsed")
 
         # Rain Gauge row
         rain_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with rain_cols[0]:
             st.write("Rain Gauge")
         with rain_cols[1]:
-            rain_gauge_sn = st.text_input("Rain Gauge S/N", value=default_rain_gauge_sn, key="rain_gauge_sn", label_visibility="collapsed")
+            rain_gauge_sn = st.text_input("Rain Gauge S/N", value=default_rain_gauge_sn, key=f"rain_gauge_sn{widget_key_suffix}", label_visibility="collapsed")
         with rain_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if rain_gauge_sn:
@@ -3360,16 +3371,16 @@ def main():
                             break
             else:
                 rain_condition_index = 0  # Default to blank when no S/N
-            rain_gauge_condition = st.selectbox("Rain Gauge Condition", options=condition_options, index=rain_condition_index, key="rain_gauge_condition", label_visibility="collapsed")
+            rain_gauge_condition = st.selectbox("Rain Gauge Condition", options=condition_options, index=rain_condition_index, key=f"rain_gauge_condition{widget_key_suffix}", label_visibility="collapsed")
         with rain_cols[3]:
-            rain_gauge_details = st.text_input("Rain Gauge Details", value=default_rain_gauge_details, key="rain_gauge_details", label_visibility="collapsed")
+            rain_gauge_details = st.text_input("Rain Gauge Details", value=default_rain_gauge_details, key=f"rain_gauge_details{widget_key_suffix}", label_visibility="collapsed")
 
         # SW Radiation row
         sw_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with sw_cols[0]:
             st.write("SW Radiation")
         with sw_cols[1]:
-            sw_radiation_sn = st.text_input("SW Radiation S/N", value=default_sw_radiation_sn, key="sw_radiation_sn", label_visibility="collapsed")
+            sw_radiation_sn = st.text_input("SW Radiation S/N", value=default_sw_radiation_sn, key=f"sw_radiation_sn{widget_key_suffix}", label_visibility="collapsed")
         with sw_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if sw_radiation_sn:
@@ -3382,16 +3393,16 @@ def main():
                             break
             else:
                 sw_condition_index = 0  # Default to blank when no S/N
-            sw_radiation_condition = st.selectbox("SW Radiation Condition", options=condition_options, index=sw_condition_index, key="sw_radiation_condition", label_visibility="collapsed")
+            sw_radiation_condition = st.selectbox("SW Radiation Condition", options=condition_options, index=sw_condition_index, key=f"sw_radiation_condition{widget_key_suffix}", label_visibility="collapsed")
         with sw_cols[3]:
-            sw_radiation_details = st.text_input("SW Radiation Details", value=default_sw_radiation_details, key="sw_radiation_details", label_visibility="collapsed")
+            sw_radiation_details = st.text_input("SW Radiation Details", value=default_sw_radiation_details, key=f"sw_radiation_details{widget_key_suffix}", label_visibility="collapsed")
 
         # LW Radiation row
         lw_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with lw_cols[0]:
             st.write("LW Radiation")
         with lw_cols[1]:
-            lw_radiation_sn = st.text_input("LW Radiation S/N", value=default_lw_radiation_sn, key="lw_radiation_sn", label_visibility="collapsed")
+            lw_radiation_sn = st.text_input("LW Radiation S/N", value=default_lw_radiation_sn, key=f"lw_radiation_sn{widget_key_suffix}", label_visibility="collapsed")
         with lw_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if lw_radiation_sn:
@@ -3404,16 +3415,16 @@ def main():
                             break
             else:
                 lw_condition_index = 0  # Default to blank when no S/N
-            lw_radiation_condition = st.selectbox("LW Radiation Condition", options=condition_options, index=lw_condition_index, key="lw_radiation_condition", label_visibility="collapsed")
+            lw_radiation_condition = st.selectbox("LW Radiation Condition", options=condition_options, index=lw_condition_index, key=f"lw_radiation_condition{widget_key_suffix}", label_visibility="collapsed")
         with lw_cols[3]:
-            lw_radiation_details = st.text_input("LW Radiation Details", value=default_lw_radiation_details, key="lw_radiation_details", label_visibility="collapsed")
+            lw_radiation_details = st.text_input("LW Radiation Details", value=default_lw_radiation_details, key=f"lw_radiation_details{widget_key_suffix}", label_visibility="collapsed")
 
         # Barometer row
         barometer_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with barometer_cols[0]:
             st.write("Barometer")
         with barometer_cols[1]:
-            barometer_sn = st.text_input("Barometer S/N", value=default_barometer_sn, key="barometer_sn", label_visibility="collapsed")
+            barometer_sn = st.text_input("Barometer S/N", value=default_barometer_sn, key=f"barometer_sn{widget_key_suffix}", label_visibility="collapsed")
         with barometer_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if barometer_sn:
@@ -3426,16 +3437,16 @@ def main():
                             break
             else:
                 barometer_condition_index = 0  # Default to blank when no S/N
-            barometer_condition = st.selectbox("Barometer Condition", options=condition_options, index=barometer_condition_index, key="barometer_condition", label_visibility="collapsed")
+            barometer_condition = st.selectbox("Barometer Condition", options=condition_options, index=barometer_condition_index, key=f"barometer_condition{widget_key_suffix}", label_visibility="collapsed")
         with barometer_cols[3]:
-            barometer_details = st.text_input("Barometer Details", value=default_barometer_details, key="barometer_details", label_visibility="collapsed")
+            barometer_details = st.text_input("Barometer Details", value=default_barometer_details, key=f"barometer_details{widget_key_suffix}", label_visibility="collapsed")
 
         # SeaCat row
         seacat_cols = st.columns([1.2, 0.8, 0.8, 1.2])
         with seacat_cols[0]:
             st.write("SeaCat")
         with seacat_cols[1]:
-            seacat_sn = st.text_input("SeaCat S/N", value=default_seacat_sn, key="seacat_sn", label_visibility="collapsed")
+            seacat_sn = st.text_input("SeaCat S/N", value=default_seacat_sn, key=f"seacat_sn{widget_key_suffix}", label_visibility="collapsed")
         with seacat_cols[2]:
             # Default to blank if no S/N, otherwise default to "OK"
             if seacat_sn:
@@ -3448,9 +3459,9 @@ def main():
                             break
             else:
                 seacat_condition_index = 0  # Default to blank when no S/N
-            seacat_condition = st.selectbox("SeaCat Condition", options=condition_options, index=seacat_condition_index, key="seacat_condition", label_visibility="collapsed")
+            seacat_condition = st.selectbox("SeaCat Condition", options=condition_options, index=seacat_condition_index, key=f"seacat_condition{widget_key_suffix}", label_visibility="collapsed")
         with seacat_cols[3]:
-            seacat_details = st.text_input("SeaCat Details", value=default_seacat_details, key="seacat_details", label_visibility="collapsed")
+            seacat_details = st.text_input("SeaCat Details", value=default_seacat_details, key=f"seacat_details{widget_key_suffix}", label_visibility="collapsed")
 
         # Evidence of Fishing or Vandalism section
         st.markdown("#### Evidence of Fishing or Vandalism")
@@ -3458,7 +3469,7 @@ def main():
             "Evidence of Fishing or Vandalism",
             value=default_fishing_vandalism,
             height=150,
-            key="fishing_vandalism",
+            key=f"fishing_vandalism{widget_key_suffix}",
             label_visibility="collapsed",
             help="Record any evidence of fishing activity, vandalism, or other human interference with the buoy"
         )
@@ -3498,11 +3509,11 @@ def main():
                 default_instrument = default_subsurface_instruments[i]
 
             with cols[0]:
-                depth = st.text_input(f"Depth {i+1}", value=str(default_instrument.get('depth', '')), key=f"ss_depth_{i}", label_visibility="collapsed")
+                depth = st.text_input(f"Depth {i+1}", value=str(default_instrument.get('depth', '')), key=f"ss_depth_{i}{widget_key_suffix}", label_visibility="collapsed")
             with cols[1]:
-                inst_type = st.text_input(f"Instrument Type {i+1}", value=default_instrument.get('instrument_type', ''), key=f"ss_type_{i}", label_visibility="collapsed")
+                inst_type = st.text_input(f"Instrument Type {i+1}", value=default_instrument.get('instrument_type', ''), key=f"ss_type_{i}{widget_key_suffix}", label_visibility="collapsed")
             with cols[2]:
-                sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}", label_visibility="collapsed")
+                sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}{widget_key_suffix}", label_visibility="collapsed")
             with cols[3]:
                 # Don't show address for Sontek instruments - check from default values (including typos)
                 inst_type_check = default_instrument.get('instrument_type') or ''
@@ -3516,18 +3527,18 @@ def main():
                     address_value = ''
                 else:
                     address_value = str(db_address).strip()
-                address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
+                address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}{widget_key_suffix}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
             with cols[4]:
-                timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}", label_visibility="collapsed", placeholder="HH:mm")
+                timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}{widget_key_suffix}", label_visibility="collapsed", placeholder="HH:mm")
             with cols[5]:
                 condition_options = ["", "OK", "Lost", "Damaged", "Fouled"]
                 default_condition = default_instrument.get('condition', '')
                 condition_index = 0
                 if default_condition and default_condition in condition_options:
                     condition_index = condition_options.index(default_condition)
-                condition = st.selectbox(f"Condition {i+1}", options=condition_options, index=condition_index, key=f"ss_condition_{i}", label_visibility="collapsed")
+                condition = st.selectbox(f"Condition {i+1}", options=condition_options, index=condition_index, key=f"ss_condition_{i}{widget_key_suffix}", label_visibility="collapsed")
             with cols[6]:
-                detail = st.text_input(f"Details {i+1}", value=default_instrument.get('detail', '') or '', key=f"ss_detail_{i}", label_visibility="collapsed")
+                detail = st.text_input(f"Details {i+1}", value=default_instrument.get('detail', '') or '', key=f"ss_detail_{i}{widget_key_suffix}", label_visibility="collapsed")
 
             # Only add to list if at least one field has data
             if any([depth, inst_type, sn, address, timeout, condition, detail]):
@@ -3577,11 +3588,11 @@ def main():
                     default_instrument = default_subsurface_instruments[i]
 
                 with cols[0]:
-                    depth = st.text_input(f"Depth {i+1}", value=str(default_instrument.get('depth', '')), key=f"ss_depth_{i}", label_visibility="collapsed")
+                    depth = st.text_input(f"Depth {i+1}", value=str(default_instrument.get('depth', '')), key=f"ss_depth_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[1]:
-                    inst_type = st.text_input(f"Instrument Type {i+1}", value=default_instrument.get('instrument_type', ''), key=f"ss_type_{i}", label_visibility="collapsed")
+                    inst_type = st.text_input(f"Instrument Type {i+1}", value=default_instrument.get('instrument_type', ''), key=f"ss_type_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[2]:
-                    sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}", label_visibility="collapsed")
+                    sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[3]:
                     # Don't show address for Sontek instruments - check from default values (including typos)
                     inst_type_check = default_instrument.get('instrument_type') or ''
@@ -3595,18 +3606,18 @@ def main():
                         address_value = ''
                     else:
                         address_value = str(db_address).strip()
-                    address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
+                    address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}{widget_key_suffix}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
                 with cols[4]:
-                    timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}", label_visibility="collapsed", placeholder="HH:mm")
+                    timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}{widget_key_suffix}", label_visibility="collapsed", placeholder="HH:mm")
                 with cols[5]:
                     condition_options = ["", "OK", "Lost", "Damaged", "Fouled"]
                     default_condition = default_instrument.get('condition', '')
                     condition_index = 0
                     if default_condition and default_condition in condition_options:
                         condition_index = condition_options.index(default_condition)
-                    condition = st.selectbox(f"Condition {i+1}", options=condition_options, index=condition_index, key=f"ss_condition_{i}", label_visibility="collapsed")
+                    condition = st.selectbox(f"Condition {i+1}", options=condition_options, index=condition_index, key=f"ss_condition_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[6]:
-                    detail = st.text_input(f"Details {i+1}", value=default_instrument.get('detail', '') or '', key=f"ss_detail_{i}", label_visibility="collapsed")
+                    detail = st.text_input(f"Details {i+1}", value=default_instrument.get('detail', '') or '', key=f"ss_detail_{i}{widget_key_suffix}", label_visibility="collapsed")
 
                 # Only add to list if at least one field has data
                 if any([depth, inst_type, sn, address, timeout, condition, detail]):
@@ -3656,11 +3667,11 @@ def main():
                     default_instrument = default_subsurface_instruments[i]
 
                 with cols[0]:
-                    depth = st.text_input(f"Depth {i+1}", value=str(default_instrument.get('depth', '')), key=f"ss_depth_{i}", label_visibility="collapsed")
+                    depth = st.text_input(f"Depth {i+1}", value=str(default_instrument.get('depth', '')), key=f"ss_depth_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[1]:
-                    inst_type = st.text_input(f"Instrument Type {i+1}", value=default_instrument.get('instrument_type', ''), key=f"ss_type_{i}", label_visibility="collapsed")
+                    inst_type = st.text_input(f"Instrument Type {i+1}", value=default_instrument.get('instrument_type', ''), key=f"ss_type_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[2]:
-                    sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}", label_visibility="collapsed")
+                    sn = st.text_input(f"Serial Number {i+1}", value=clean_serial_number(default_instrument.get('serial_number', '')), key=f"ss_sn_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[3]:
                     # Don't show address for Sontek instruments - check from default values (including typos)
                     inst_type_check = default_instrument.get('instrument_type') or ''
@@ -3674,18 +3685,18 @@ def main():
                         address_value = ''
                     else:
                         address_value = str(db_address).strip()
-                    address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
+                    address = st.text_input(f"Address {i+1}", value=address_value, key=f"ss_address_{i}{widget_key_suffix}", label_visibility="collapsed", placeholder="N/A" if is_sontek else "")
                 with cols[4]:
-                    timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}", label_visibility="collapsed", placeholder="HH:mm")
+                    timeout = st.text_input(f"Timeout {i+1}", value=default_instrument.get('timeout', ''), key=f"ss_timeout_{i}{widget_key_suffix}", label_visibility="collapsed", placeholder="HH:mm")
                 with cols[5]:
                     condition_options = ["", "OK", "Lost", "Damaged", "Fouled"]
                     default_condition = default_instrument.get('condition', '')
                     condition_index = 0
                     if default_condition and default_condition in condition_options:
                         condition_index = condition_options.index(default_condition)
-                    condition = st.selectbox(f"Condition {i+1}", options=condition_options, index=condition_index, key=f"ss_condition_{i}", label_visibility="collapsed")
+                    condition = st.selectbox(f"Condition {i+1}", options=condition_options, index=condition_index, key=f"ss_condition_{i}{widget_key_suffix}", label_visibility="collapsed")
                 with cols[6]:
-                    detail = st.text_input(f"Details {i+1}", value=default_instrument.get('detail', '') or '', key=f"ss_detail_{i}", label_visibility="collapsed")
+                    detail = st.text_input(f"Details {i+1}", value=default_instrument.get('detail', '') or '', key=f"ss_detail_{i}{widget_key_suffix}", label_visibility="collapsed")
 
                 # Only add to list if at least one field has data
                 if any([depth, inst_type, sn, address, timeout, condition, detail]):
@@ -3745,23 +3756,23 @@ def main():
             with cols[0]:
                 spool = st.text_input(f"Line {i+1}",
                                     value=default_spool.get('spool', ''),
-                                    key=f"nylon_spool_{i}",
+                                    key=f"nylon_spool_{i}{widget_key_suffix}",
                                     label_visibility="collapsed",
                                     placeholder=f"{i+1}")
             with cols[1]:
                 sn = st.text_input(f"S/N {i+1}",
                                  value=default_spool.get('sn', ''),
-                                 key=f"nylon_sn_{i}",
+                                 key=f"nylon_sn_{i}{widget_key_suffix}",
                                  label_visibility="collapsed")
             with cols[2]:
                 length = st.text_input(f"Length {i+1}",
                                      value=default_spool.get('length', ''),
-                                     key=f"nylon_length_{i}",
+                                     key=f"nylon_length_{i}{widget_key_suffix}",
                                      label_visibility="collapsed")
             with cols[3]:
                 condition = st.text_input(f"Condition {i+1}",
                                         value=default_spool.get('condition', ''),
-                                        key=f"nylon_condition_{i}",
+                                        key=f"nylon_condition_{i}{widget_key_suffix}",
                                         label_visibility="collapsed")
 
             # Collect data if any field has value
@@ -3797,22 +3808,22 @@ def main():
         with buoy_hw_cols[1]:
             buoy_hardware_sn = st.text_input("Buoy Hardware S/N",
                                             value=default_buoy_hardware_sn,
-                                            key="buoy_hardware_sn",
+                                            key=f"buoy_hardware_sn{widget_key_suffix}",
                                             label_visibility="collapsed")
         with buoy_hw_cols[2]:
             buoy_hardware_condition = st.text_input("Buoy Hardware Condition",
                                                    value=default_buoy_hardware_condition,
-                                                   key="buoy_hardware_condition",
+                                                   key=f"buoy_hardware_condition{widget_key_suffix}",
                                                    label_visibility="collapsed")
         with buoy_hw_cols[3]:
             buoy_top_section_sn = st.text_input("Buoy Top Section S/N",
                                                value=default_buoy_top_section_sn,
-                                               key="buoy_top_section_sn",
+                                               key=f"buoy_top_section_sn{widget_key_suffix}",
                                                label_visibility="collapsed")
         with buoy_hw_cols[4]:
             buoy_glass_balls = st.text_input("Buoy Glass Balls",
                                             value=default_buoy_glass_balls,
-                                            key="buoy_glass_balls",
+                                            key=f"buoy_glass_balls{widget_key_suffix}",
                                             label_visibility="collapsed")
 
         # Wire row
@@ -3822,12 +3833,12 @@ def main():
         with wire_hw_cols[1]:
             wire_hardware_sn = st.text_input("Wire Hardware S/N",
                                             value=default_wire_hardware_sn,
-                                            key="wire_hardware_sn",
+                                            key=f"wire_hardware_sn{widget_key_suffix}",
                                             label_visibility="collapsed")
         with wire_hw_cols[2]:
             wire_hardware_condition = st.text_input("Wire Hardware Condition",
                                                    value=default_wire_hardware_condition,
-                                                   key="wire_hardware_condition",
+                                                   key=f"wire_hardware_condition{widget_key_suffix}",
                                                    label_visibility="collapsed")
         with wire_hw_cols[3]:
             st.write("")  # Empty cell for wire row
@@ -3859,7 +3870,7 @@ def main():
             battery_logic_value = '' if pd.isna(default_battery_logic) else str(default_battery_logic) if default_battery_logic not in [None, ''] else ''
             battery_logic = st.text_input("Battery Logic",
                                          value=battery_logic_value,
-                                         key="battery_logic",
+                                         key=f"battery_logic{widget_key_suffix}",
                                          label_visibility="collapsed",
                                          placeholder="Voltage")
         with battery_value_cols[1]:
@@ -3867,7 +3878,7 @@ def main():
             battery_transmit_value = '' if pd.isna(default_battery_transmit) else str(default_battery_transmit) if default_battery_transmit not in [None, ''] else ''
             battery_transmit = st.text_input("Battery Transmit",
                                             value=battery_transmit_value,
-                                            key="battery_transmit",
+                                            key=f"battery_transmit{widget_key_suffix}",
                                             label_visibility="collapsed",
                                             placeholder="Voltage")
         with battery_value_cols[2]:
@@ -3892,7 +3903,7 @@ def main():
             tube_date_value = '' if pd.isna(default_tube_date) else str(default_tube_date) if default_tube_date not in [None, ''] else ''
             tube_date = st.text_input("Tube Date",
                                      value=tube_date_value,
-                                     key="tube_date",
+                                     key=f"tube_date{widget_key_suffix}",
                                      label_visibility="collapsed",
                                      placeholder="YYYY-MM-DD")
         with tube_value_cols[1]:
@@ -3900,7 +3911,7 @@ def main():
             tube_actual_time_value = '' if pd.isna(default_tube_actual_time) else str(default_tube_actual_time) if default_tube_actual_time not in [None, ''] else ''
             tube_actual_time = st.text_input("Tube Actual Time",
                                             value=tube_actual_time_value,
-                                            key="tube_actual_time",
+                                            key=f"tube_actual_time{widget_key_suffix}",
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
         with tube_value_cols[2]:
@@ -3908,7 +3919,7 @@ def main():
             tube_inst_time_value = '' if pd.isna(default_tube_inst_time) else str(default_tube_inst_time) if default_tube_inst_time not in [None, ''] else ''
             tube_inst_time = st.text_input("Tube Inst. Time",
                                           value=tube_inst_time_value,
-                                          key="tube_inst_time",
+                                          key=f"tube_inst_time{widget_key_suffix}",
                                           label_visibility="collapsed",
                                           placeholder="HH:mm:ss")
         with tube_value_cols[3]:
@@ -3917,7 +3928,7 @@ def main():
 
             tube_clock_error = st.text_input("Tube Clock Error",
                                             value=tube_clock_error_value,
-                                            key="tube_clock_error",
+                                            key=f"tube_clock_error{widget_key_suffix}",
                                             label_visibility="collapsed",
                                             placeholder="M:SS",
                                             help="Will auto-calculate (Actual - Inst) when form is submitted" if st.session_state.mode == 'Add New' else None)
@@ -3966,51 +3977,51 @@ def main():
             with cols[0]:
                 sensor_type = st.text_input(f"Sensor Type {i+1}",
                                           value=default_clock_error.get('sensor_type', ''),
-                                          key=f"sce_sensor_type_{i}",
+                                          key=f"sce_sensor_type_{i}{widget_key_suffix}",
                                           label_visibility="collapsed")
             with cols[1]:
                 sensor_sn = st.text_input(f"Sensor S/N {i+1}",
                                         value=clean_serial_number(default_clock_error.get('serial_number', '')),
-                                        key=f"sce_sn_{i}",
+                                        key=f"sce_sn_{i}{widget_key_suffix}",
                                         label_visibility="collapsed")
             with cols[2]:
                 actual_time = st.text_input(f"Actual Time {i+1}",
                                           value=default_clock_error.get('actual_time', ''),
-                                          key=f"sce_actual_time_{i}",
+                                          key=f"sce_actual_time_{i}{widget_key_suffix}",
                                           label_visibility="collapsed",
                                           placeholder="HH:mm:ss")
             with cols[3]:
                 inst_time = st.text_input(f"Inst Time {i+1}",
                                         value=default_clock_error.get('inst_time', ''),
-                                        key=f"sce_inst_time_{i}",
+                                        key=f"sce_inst_time_{i}{widget_key_suffix}",
                                         label_visibility="collapsed",
                                         placeholder="HH:mm:ss")
             with cols[4]:
                 clock_error_value = default_clock_error.get('clock_error', '')
                 clock_error = st.text_input(f"Clock Error {i+1}",
                                           value=clock_error_value,
-                                          key=f"sce_clock_error_{i}",
+                                          key=f"sce_clock_error_{i}{widget_key_suffix}",
                                           label_visibility="collapsed",
                                           placeholder="Auto-calc" if st.session_state.mode == 'Add New' else "M:SS")
             with cols[5]:
                 filename = st.text_input(f"Filename {i+1}",
                                        value=default_clock_error.get('filename', ''),
-                                       key=f"sce_filename_{i}",
+                                       key=f"sce_filename_{i}{widget_key_suffix}",
                                        label_visibility="collapsed")
             with cols[6]:
                 battery_voltage = st.text_input(f"Battery Voltage {i+1}",
                                                value=default_clock_error.get('battery_voltage', ''),
-                                               key=f"sce_battery_voltage_{i}",
+                                               key=f"sce_battery_voltage_{i}{widget_key_suffix}",
                                                label_visibility="collapsed")
             with cols[7]:
                 num_records = st.text_input(f"Number of Records {i+1}",
                                           value=default_clock_error.get('number_of_records', ''),
-                                          key=f"sce_num_records_{i}",
+                                          key=f"sce_num_records_{i}{widget_key_suffix}",
                                           label_visibility="collapsed")
             with cols[8]:
                 comments = st.text_input(f"Comments {i+1}",
                                        value=default_clock_error.get('comments', ''),
-                                       key=f"sce_comments_{i}",
+                                       key=f"sce_comments_{i}{widget_key_suffix}",
                                        label_visibility="collapsed")
 
             # Only add to list if at least one field has data
@@ -4050,51 +4061,51 @@ def main():
                 with cols[0]:
                     sensor_type = st.text_input(f"Sensor Type {i+1}",
                                               value=default_clock_error.get('sensor_type', ''),
-                                              key=f"sce_sensor_type_{i}",
+                                              key=f"sce_sensor_type_{i}{widget_key_suffix}",
                                               label_visibility="collapsed")
                 with cols[1]:
                     sensor_sn = st.text_input(f"Sensor S/N {i+1}",
                                             value=clean_serial_number(default_clock_error.get('serial_number', '')),
-                                            key=f"sce_sn_{i}",
+                                            key=f"sce_sn_{i}{widget_key_suffix}",
                                             label_visibility="collapsed")
                 with cols[2]:
                     actual_time = st.text_input(f"Actual Time {i+1}",
                                             value=default_clock_error.get('actual_time', ''),
-                                            key=f"sce_actual_time_{i}",
+                                            key=f"sce_actual_time_{i}{widget_key_suffix}",
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[3]:
                     inst_time = st.text_input(f"Inst Time {i+1}",
                                             value=default_clock_error.get('inst_time', ''),
-                                            key=f"sce_inst_time_{i}",
+                                            key=f"sce_inst_time_{i}{widget_key_suffix}",
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[4]:
                     clock_error_value = default_clock_error.get('clock_error', '')
                     clock_error = st.text_input(f"Clock Error {i+1}",
                                               value=clock_error_value,
-                                              key=f"sce_clock_error_{i}",
+                                              key=f"sce_clock_error_{i}{widget_key_suffix}",
                                               label_visibility="collapsed",
                                               placeholder="Auto-calc" if st.session_state.mode == 'Add New' else "M:SS")
                 with cols[5]:
                     filename = st.text_input(f"Filename {i+1}",
                                            value=default_clock_error.get('filename', ''),
-                                           key=f"sce_filename_{i}",
+                                           key=f"sce_filename_{i}{widget_key_suffix}",
                                            label_visibility="collapsed")
                 with cols[6]:
                     battery_voltage = st.text_input(f"Battery Voltage {i+1}",
                                                    value=default_clock_error.get('battery_voltage', ''),
-                                                   key=f"sce_battery_voltage_{i}",
+                                                   key=f"sce_battery_voltage_{i}{widget_key_suffix}",
                                                    label_visibility="collapsed")
                 with cols[7]:
                     num_records = st.text_input(f"Number of Records {i+1}",
                                               value=default_clock_error.get('number_of_records', ''),
-                                              key=f"sce_num_records_{i}",
+                                              key=f"sce_num_records_{i}{widget_key_suffix}",
                                               label_visibility="collapsed")
                 with cols[8]:
                     comments = st.text_input(f"Comments {i+1}",
                                            value=default_clock_error.get('comments', ''),
-                                           key=f"sce_comments_{i}",
+                                           key=f"sce_comments_{i}{widget_key_suffix}",
                                            label_visibility="collapsed")
 
                 # Only add to list if at least one field has data
@@ -4134,51 +4145,51 @@ def main():
                 with cols[0]:
                     sensor_type = st.text_input(f"Sensor Type {i+1}",
                                               value=default_clock_error.get('sensor_type', ''),
-                                              key=f"sce_sensor_type_{i}",
+                                              key=f"sce_sensor_type_{i}{widget_key_suffix}",
                                               label_visibility="collapsed")
                 with cols[1]:
                     sensor_sn = st.text_input(f"Sensor S/N {i+1}",
                                             value=clean_serial_number(default_clock_error.get('serial_number', '')),
-                                            key=f"sce_sn_{i}",
+                                            key=f"sce_sn_{i}{widget_key_suffix}",
                                             label_visibility="collapsed")
                 with cols[2]:
                     actual_time = st.text_input(f"Actual Time {i+1}",
                                             value=default_clock_error.get('actual_time', ''),
-                                            key=f"sce_actual_time_{i}",
+                                            key=f"sce_actual_time_{i}{widget_key_suffix}",
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[3]:
                     inst_time = st.text_input(f"Inst Time {i+1}",
                                             value=default_clock_error.get('inst_time', ''),
-                                            key=f"sce_inst_time_{i}",
+                                            key=f"sce_inst_time_{i}{widget_key_suffix}",
                                             label_visibility="collapsed",
                                             placeholder="HH:mm:ss")
                 with cols[4]:
                     clock_error_value = default_clock_error.get('clock_error', '')
                     clock_error = st.text_input(f"Clock Error {i+1}",
                                               value=clock_error_value,
-                                              key=f"sce_clock_error_{i}",
+                                              key=f"sce_clock_error_{i}{widget_key_suffix}",
                                               label_visibility="collapsed",
                                               placeholder="Auto-calc" if st.session_state.mode == 'Add New' else "M:SS")
                 with cols[5]:
                     filename = st.text_input(f"Filename {i+1}",
                                            value=default_clock_error.get('filename', ''),
-                                           key=f"sce_filename_{i}",
+                                           key=f"sce_filename_{i}{widget_key_suffix}",
                                            label_visibility="collapsed")
                 with cols[6]:
                     battery_voltage = st.text_input(f"Battery Voltage {i+1}",
                                                    value=default_clock_error.get('battery_voltage', ''),
-                                                   key=f"sce_battery_voltage_{i}",
+                                                   key=f"sce_battery_voltage_{i}{widget_key_suffix}",
                                                    label_visibility="collapsed")
                 with cols[7]:
                     num_records = st.text_input(f"Number of Records {i+1}",
                                               value=default_clock_error.get('number_of_records', ''),
-                                              key=f"sce_num_records_{i}",
+                                              key=f"sce_num_records_{i}{widget_key_suffix}",
                                               label_visibility="collapsed")
                 with cols[8]:
                     comments = st.text_input(f"Comments {i+1}",
                                            value=default_clock_error.get('comments', ''),
-                                           key=f"sce_comments_{i}",
+                                           key=f"sce_comments_{i}{widget_key_suffix}",
                                            label_visibility="collapsed")
 
                 # Only add to list if at least one field has data
@@ -4204,7 +4215,7 @@ def main():
             "Recovery Problems or Comments",
             value=default_recovery_problems,
             height=600,
-            key="recovery_problems",
+            key=f"recovery_problems{widget_key_suffix}",
             label_visibility="collapsed",
             help="Enter any problems or comments regarding the recovery"
         )
@@ -4419,7 +4430,7 @@ def main():
         st.divider()
         bottom_cols = st.columns([1, 1, 2])
         with bottom_cols[0]:
-            if st.button("📄 Export Current Record to XML", key="bottom_export", use_container_width=True):
+            if st.button("📄 Export Current Record to XML", key=f"bottom_export{widget_key_suffix}", use_container_width=True):
                 try:
                     xml_content = export_record_to_xml(st.session_state.selected_recovery)
                     # Generate filename

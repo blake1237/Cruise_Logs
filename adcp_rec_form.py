@@ -917,6 +917,14 @@ def main():
         if 'general_comments' not in st.session_state:
             st.session_state.general_comments = ''
 
+    # Create unique widget key suffix based on mode and record
+    # This prevents session state from one record interfering with another
+    if mode == "Search/Edit" and st.session_state.selected_recovery:
+        record_id = st.session_state.selected_recovery.get('id')
+        widget_key_suffix = f"_edit_{record_id}"
+    else:
+        widget_key_suffix = "_new"
+
     # Create the main form
     with st.form("recovery_form"):
         st.subheader("Basic Information")
@@ -925,19 +933,19 @@ def main():
         basic_row1 = st.columns([1, 1])
         with basic_row1[0]:
             st.write("**Mooring ID**")
-            mooring_id = st.text_input("Mooring ID", value=default_mooring_id, key="mooring_id", label_visibility="collapsed")
+            mooring_id = st.text_input("Mooring ID", value=default_mooring_id, key=f"mooring_id{widget_key_suffix}", label_visibility="collapsed")
         with basic_row1[1]:
             st.write("**Release Date**")
-            recovery_date = st.date_input("Release Date", value=default_recovery_date, key="recovery_date", label_visibility="collapsed")
+            recovery_date = st.date_input("Release Date", value=default_recovery_date, key=f"recovery_date{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 2: Site, Cruise
         basic_row2 = st.columns([1, 1])
         with basic_row2[0]:
             st.write("**Site**")
-            site = st.text_input("Site", value=default_site, key="site", label_visibility="collapsed")
+            site = st.text_input("Site", value=default_site, key=f"site{widget_key_suffix}", label_visibility="collapsed")
         with basic_row2[1]:
             st.write("**Cruise**")
-            cruise = st.text_input("Cruise", value=default_cruise, key="cruise", label_visibility="collapsed")
+            cruise = st.text_input("Cruise", value=default_cruise, key=f"cruise{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 3: Personnel with simple auto-fill functionality
         st.write("**Personnel**")
@@ -950,25 +958,25 @@ def main():
                 default_personnel = auto_personnel
                 st.session_state['last_filled_cruise'] = current_cruise
 
-        personnel = st.text_input("Personnel", value=default_personnel, key="personnel", label_visibility="collapsed")
+        personnel = st.text_input("Personnel", value=default_personnel, key=f"personnel{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 4: Latitude, Longitude
         basic_row4 = st.columns([1, 1])
         with basic_row4[0]:
             st.write("**Latitude**")
-            latitude = st.text_input("Latitude", value=default_latitude, key="latitude", label_visibility="collapsed")
+            latitude = st.text_input("Latitude", value=default_latitude, key=f"latitude{widget_key_suffix}", label_visibility="collapsed")
         with basic_row4[1]:
             st.write("**Longitude**")
-            longitude = st.text_input("Longitude", value=default_longitude, key="longitude", label_visibility="collapsed")
+            longitude = st.text_input("Longitude", value=default_longitude, key=f"longitude{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 5: Release Fire Time, Time on Deck
         basic_row5 = st.columns([1, 1])
         with basic_row5[0]:
             st.write("**Release Fire Time**")
-            release_fire_time = st.text_input("Release Fire Time", value=default_release_fire_time, key="release_fire_time", label_visibility="collapsed")
+            release_fire_time = st.text_input("Release Fire Time", value=default_release_fire_time, key=f"release_fire_time{widget_key_suffix}", label_visibility="collapsed")
         with basic_row5[1]:
             st.write("**Time on Deck**")
-            time_on_deck = st.text_input("Time on Deck", value=default_time_on_deck, key="time_on_deck", label_visibility="collapsed")
+            time_on_deck = st.text_input("Time on Deck", value=default_time_on_deck, key=f"time_on_deck{widget_key_suffix}", label_visibility="collapsed")
 
         st.markdown("---")
 
@@ -1042,7 +1050,7 @@ def main():
                 inst_type = st.text_input(
                     f"Type {i+1}",
                     value=instrument.get('type', ''),
-                    key=f"inst_type_{i}",
+                    key=f"inst_type_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1050,7 +1058,7 @@ def main():
                 serial_number = st.text_input(
                     f"S/N {i+1}",
                     value=instrument.get('serial_number', ''),
-                    key=f"inst_sn_{i}",
+                    key=f"inst_sn_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1060,7 +1068,7 @@ def main():
                     f"Status {i+1}",
                     options=['OK', 'Damaged', 'Lost'],
                     index=['OK', 'Damaged', 'Lost'].index(instrument_status),
-                    key=f"inst_status_{i}",
+                    key=f"inst_status_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1068,7 +1076,7 @@ def main():
                 comments = st.text_input(
                     f"Comments {i+1}",
                     value=instrument.get('comments', ''),
-                    key=f"inst_comments_{i}",
+                    key=f"inst_comments_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1109,7 +1117,7 @@ def main():
                 beacon_type = st.text_input(
                     f"Type {i+1}",
                     value=beacon.get('type', ''),
-                    key=f"beacon_type_{i}",
+                    key=f"beacon_type_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1117,7 +1125,7 @@ def main():
                 serial_number = st.text_input(
                     f"S/N {i+1}",
                     value=beacon.get('serial_number', ''),
-                    key=f"beacon_sn_{i}",
+                    key=f"beacon_sn_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1127,7 +1135,7 @@ def main():
                     f"Status {i+1}",
                     options=['OK', 'Damaged', 'Lost'],
                     index=['OK', 'Damaged', 'Lost'].index(beacon_status),
-                    key=f"beacon_status_{i}",
+                    key=f"beacon_status_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1135,7 +1143,7 @@ def main():
                 comments = st.text_input(
                     f"Comments {i+1}",
                     value=beacon.get('comments', ''),
-                    key=f"beacon_comments_{i}",
+                    key=f"beacon_comments_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1156,41 +1164,41 @@ def main():
         with recovery_row1[0]:
             st.write("**Release Enable DateTime**")
             placeholder_enable = "YYYY-MM-DD / HH:MM:SS" if mode == "Add New" else ""
-            release_enable_combined = st.text_input("Release Enable DateTime", value=default_release_enable_combined, placeholder=placeholder_enable, key="release_enable_combined", label_visibility="collapsed")
+            release_enable_combined = st.text_input("Release Enable DateTime", value=default_release_enable_combined, placeholder=placeholder_enable, key=f"release_enable_combined{widget_key_suffix}", label_visibility="collapsed")
         with recovery_row1[1]:
             st.write("**Confirmed Release DateTime**")
             placeholder_confirmed = "YYYY-MM-DD / HH:MM:SS" if mode == "Add New" else ""
-            confirmed_release_combined = st.text_input("Confirmed Release DateTime", value=default_confirmed_release_combined, placeholder=placeholder_confirmed, key="confirmed_release_combined", label_visibility="collapsed")
+            confirmed_release_combined = st.text_input("Confirmed Release DateTime", value=default_confirmed_release_combined, placeholder=placeholder_confirmed, key=f"confirmed_release_combined{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 2: Depth (single column)
         recovery_row2 = st.columns([1, 1])
         with recovery_row2[0]:
             st.write("**Depth**")
-            depth = st.text_input("Depth", value=default_depth, key="depth", label_visibility="collapsed")
+            depth = st.text_input("Depth", value=default_depth, key=f"depth{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 3: Pre-release Slant Range, Time Float sighted
         recovery_row3 = st.columns([1, 1])
         with recovery_row3[0]:
             st.write("**Pre-release Slant Range**")
-            final_pre_release_slant_range = st.text_input("Pre-release Slant Range", value=default_final_pre_release_slant_range, key="final_pre_release_slant_range", label_visibility="collapsed")
+            final_pre_release_slant_range = st.text_input("Pre-release Slant Range", value=default_final_pre_release_slant_range, key=f"final_pre_release_slant_range{widget_key_suffix}", label_visibility="collapsed")
         with recovery_row3[1]:
             st.write("**Time Float sighted**")
-            time_float_sighted = st.text_input("Time Float sighted", value=default_time_float_sighted, key="time_float_sighted", label_visibility="collapsed")
+            time_float_sighted = st.text_input("Time Float sighted", value=default_time_float_sighted, key=f"time_float_sighted{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 4: Post-release Slant Range, Time Float on deck
         recovery_row4 = st.columns([1, 1])
         with recovery_row4[0]:
             st.write("**Post-release Slant Range**")
-            first_post_release_slant_range = st.text_input("Post-release Slant Range", value=default_first_post_release_slant_range, key="first_post_release_slant_range", label_visibility="collapsed")
+            first_post_release_slant_range = st.text_input("Post-release Slant Range", value=default_first_post_release_slant_range, key=f"first_post_release_slant_range{widget_key_suffix}", label_visibility="collapsed")
         with recovery_row4[1]:
             st.write("**Time Float on deck**")
-            time_float_on_deck = st.text_input("Time Float on deck", value=default_time_float_on_deck, key="time_float_on_deck", label_visibility="collapsed")
+            time_float_on_deck = st.text_input("Time Float on deck", value=default_time_float_on_deck, key=f"time_float_on_deck{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 5: Time releases on deck (single column)
         recovery_row5 = st.columns([1, 1])
         with recovery_row5[0]:
             st.write("**Time releases on deck**")
-            time_releases_on_deck = st.text_input("Time releases on deck", value=default_time_releases_on_deck, key="time_releases_on_deck", label_visibility="collapsed")
+            time_releases_on_deck = st.text_input("Time releases on deck", value=default_time_releases_on_deck, key=f"time_releases_on_deck{widget_key_suffix}", label_visibility="collapsed")
 
         st.markdown("---")
 
@@ -1226,7 +1234,7 @@ def main():
                 component_type = st.text_input(
                     f"Type {i+1}",
                     value=component.get('type', ''),
-                    key=f"component_type_{i}",
+                    key=f"component_type_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1234,7 +1242,7 @@ def main():
                 serial_number = st.text_input(
                     f"S/N {i+1}",
                     value=component.get('serial_number', ''),
-                    key=f"component_sn_{i}",
+                    key=f"component_sn_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1242,7 +1250,7 @@ def main():
                 length = st.text_input(
                     f"Length {i+1}",
                     value=component.get('length', ''),
-                    key=f"component_length_{i}",
+                    key=f"component_length_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1252,7 +1260,7 @@ def main():
                     f"Status {i+1}",
                     options=['OK', 'Damaged', 'Lost'],
                     index=['OK', 'Damaged', 'Lost'].index(component_status),
-                    key=f"component_status_{i}",
+                    key=f"component_status_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1260,7 +1268,7 @@ def main():
                 comments = st.text_input(
                     f"Comments {i+1}",
                     value=component.get('comments', ''),
-                    key=f"component_comments_{i}",
+                    key=f"component_comments_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1306,7 +1314,7 @@ def main():
                 serial_number = st.text_input(
                     f"{release['position']} S/N",
                     value=release.get('serial_number', ''),
-                    key=f"release_sn_{i}",
+                    key=f"release_sn_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1314,7 +1322,7 @@ def main():
                 release_type = st.text_input(
                     f"{release['position']} Type",
                     value=release.get('type', ''),
-                    key=f"release_type_{i}",
+                    key=f"release_type_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1324,7 +1332,7 @@ def main():
                     f"{release['position']} Recovered",
                     options=['', 'Yes', 'No'],
                     index=['', 'Yes', 'No'].index(recovered_status) if recovered_status in ['', 'Yes', 'No'] else 0,
-                    key=f"release_recovered_{i}",
+                    key=f"release_recovered_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1341,7 +1349,7 @@ def main():
         release_communication = st.text_area(
             "Release Comments",
             value=st.session_state.get('release_communication', ''),
-            key="release_communication_input",
+            key=f"release_communication_input{widget_key_suffix}",
             label_visibility="collapsed",
             height=100
         )
@@ -1392,7 +1400,7 @@ def main():
                 serial_number = st.text_input(
                     f"{clock_error['instrument']} S/N",
                     value=clock_error.get('serial_number', ''),
-                    key=f"clock_error_sn_{i}",
+                    key=f"clock_error_sn_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1400,7 +1408,7 @@ def main():
                 gmt_date = st.text_input(
                     f"{clock_error['instrument']} GMT Date",
                     value=clock_error.get('gmt_date', ''),
-                    key=f"clock_error_gmt_date_{i}",
+                    key=f"clock_error_gmt_date_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1408,7 +1416,7 @@ def main():
                 inst_date = st.text_input(
                     f"{clock_error['instrument']} Inst. Date",
                     value=clock_error.get('inst_date', ''),
-                    key=f"clock_error_inst_date_{i}",
+                    key=f"clock_error_inst_date_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1418,7 +1426,7 @@ def main():
                 date_error = st.text_input(
                     f"{clock_error['instrument']} Date Error",
                     value=calculated_date_error,
-                    key=f"clock_error_date_error_{i}",
+                    key=f"clock_error_date_error_{i}{widget_key_suffix}",
                     label_visibility="collapsed",
                     disabled=True
                 )
@@ -1427,7 +1435,7 @@ def main():
                 gmt_time = st.text_input(
                     f"{clock_error['instrument']} GMT Time",
                     value=clock_error.get('gmt_time', ''),
-                    key=f"clock_error_gmt_time_{i}",
+                    key=f"clock_error_gmt_time_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1435,7 +1443,7 @@ def main():
                 inst_time = st.text_input(
                     f"{clock_error['instrument']} Inst. Time",
                     value=clock_error.get('inst_time', ''),
-                    key=f"clock_error_inst_time_{i}",
+                    key=f"clock_error_inst_time_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1445,7 +1453,7 @@ def main():
                 time_error = st.text_input(
                     f"{clock_error['instrument']} Time Error",
                     value=calculated_time_error,
-                    key=f"clock_error_time_error_{i}",
+                    key=f"clock_error_time_error_{i}{widget_key_suffix}",
                     label_visibility="collapsed",
                     disabled=True
                 )
@@ -1454,7 +1462,7 @@ def main():
                 file_name = st.text_input(
                     f"{clock_error['instrument']} File Name",
                     value=clock_error.get('file_name', ''),
-                    key=f"clock_error_file_name_{i}",
+                    key=f"clock_error_file_name_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1462,7 +1470,7 @@ def main():
                 comments = st.text_input(
                     f"{clock_error['instrument']} Comments",
                     value=clock_error.get('comments', ''),
-                    key=f"clock_error_comments_{i}",
+                    key=f"clock_error_comments_{i}{widget_key_suffix}",
                     label_visibility="collapsed"
                 )
 
@@ -1487,7 +1495,7 @@ def main():
         general_comments = st.text_area(
             "General Comments",
             value=st.session_state.get('general_comments', ''),
-            key="general_comments_input",
+            key=f"general_comments_input{widget_key_suffix}",
             label_visibility="collapsed",
             height=250
         )

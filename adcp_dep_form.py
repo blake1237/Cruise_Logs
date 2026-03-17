@@ -852,6 +852,15 @@ def main():
     else:
         st.subheader("Edit Deployment")
 
+    # Create unique widget key suffix based on mode and record
+    # This prevents session state from one record interfering with another
+    if mode == "Search/Edit" and st.session_state.selected_deployment is not None:
+        record = st.session_state.selected_deployment
+        record_id = record.get('id')
+        widget_key_suffix = f"_edit_{record_id}"
+    else:
+        widget_key_suffix = "_new"
+
     # Initialize form defaults
     if mode == "Search/Edit" and st.session_state.selected_deployment is not None:
         record = st.session_state.selected_deployment
@@ -1153,47 +1162,47 @@ def main():
         # Row 1: Site, Mooring ID
         col1, col2 = st.columns(2)
         with col1:
-            site = st.text_input("Site", value=default_site, key="site")
+            site = st.text_input("Site", value=default_site, key=f"site{widget_key_suffix}")
         with col2:
-            mooring_id = st.text_input("Mooring ID", value=default_mooring_id, key="mooring_id")
+            mooring_id = st.text_input("Mooring ID", value=default_mooring_id, key=f"mooring_id{widget_key_suffix}")
 
         # Row 2: Cruise, Anchor Date
         col1, col2 = st.columns(2)
         with col1:
-            cruise = st.text_input("Cruise", value=default_cruise, key="cruise")
+            cruise = st.text_input("Cruise", value=default_cruise, key=f"cruise{widget_key_suffix}")
         with col2:
-            anchor_date = st.date_input("Anchor Date", value=default_deployment_date, key="anchor_date", format="MM/DD/YYYY")
+            anchor_date = st.date_input("Anchor Date", value=default_deployment_date, key=f"anchor_date{widget_key_suffix}", format="MM/DD/YYYY")
 
         # Row 3: Personnel (entire row)
-        personnel = st.text_input("Personnel", value=default_personnel, key="personnel")
+        personnel = st.text_input("Personnel", value=default_personnel, key=f"personnel{widget_key_suffix}")
 
         # Row 4: Latitude, Longitude
         col1, col2 = st.columns(2)
         with col1:
-            latitude = st.text_input("Latitude", value=default_latitude, key="latitude")
+            latitude = st.text_input("Latitude", value=default_latitude, key=f"latitude{widget_key_suffix}")
         with col2:
-            longitude = st.text_input("Longitude", value=default_longitude, key="longitude")
+            longitude = st.text_input("Longitude", value=default_longitude, key=f"longitude{widget_key_suffix}")
 
         # Row 5: Source of Location, Transducer Depth Calc
         col1, col2 = st.columns(2)
         with col1:
-            location_source = st.text_input("Source of Location", value=default_location_source, key="location_source")
+            location_source = st.text_input("Source of Location", value=default_location_source, key=f"location_source{widget_key_suffix}")
         with col2:
-            actual_xducer_depth_calculated = st.text_input("Transducer Depth Calc", value=default_actual_xducer_depth_calculated, key="actual_xducer_depth_calculated")
+            actual_xducer_depth_calculated = st.text_input("Transducer Depth Calc", value=default_actual_xducer_depth_calculated, key=f"actual_xducer_depth_calculated{widget_key_suffix}")
 
         # Row 6: Corrected Depth, Deployment Start Date
         col1, col2 = st.columns(2)
         with col1:
-            corrected_depth = st.text_input("Corrected Depth", value=default_corrected_depth, key="corrected_depth")
+            corrected_depth = st.text_input("Corrected Depth", value=default_corrected_depth, key=f"corrected_depth{widget_key_suffix}")
         with col2:
-            deployment_start_date = st.date_input("Deployment Start Date", value=default_deployment_date, key="deployment_start_date", format="MM/DD/YYYY")
+            deployment_start_date = st.date_input("Deployment Start Date", value=default_deployment_date, key=f"deployment_start_date{widget_key_suffix}", format="MM/DD/YYYY")
 
         # Row 7: Source of Depth, Start Time (GMT)
         col1, col2 = st.columns(2)
         with col1:
-            depth_source = st.text_input("Source of Depth", value=default_depth_source, key="depth_source")
+            depth_source = st.text_input("Source of Depth", value=default_depth_source, key=f"depth_source{widget_key_suffix}")
         with col2:
-            start_time_gmt = st.time_input("Start Time (GMT)", value=default_deployment_time, key="start_time_gmt", step=60)
+            start_time_gmt = st.time_input("Start Time (GMT)", value=default_deployment_time, key=f"start_time_gmt{widget_key_suffix}", step=60)
 
         st.markdown("---")
 
@@ -1217,29 +1226,29 @@ def main():
             col_name, col_sn, col_imei = st.columns([2, 2, 2])
             with col_name:
                 st.markdown("Satellite Beacon")
-                iridium_checked = st.checkbox("Iridium", value=default_iridium_checked, key="iridium_checkbox")
+                iridium_checked = st.checkbox("Iridium", value=default_iridium_checked, key=f"iridium_checkbox{widget_key_suffix}")
             with col_sn:
-                sat_beacon_sn = st.text_input("Satellite Beacon S/N", value=default_sat_beacon_sn, key="sat_beacon_sn", label_visibility="collapsed")
+                sat_beacon_sn = st.text_input("Satellite Beacon S/N", value=default_sat_beacon_sn, key=f"sat_beacon_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_imei:
-                sat_beacon_id = st.text_input("Satellite Beacon IMEI/PTT", value=default_sat_beacon_id, key="sat_beacon_id", label_visibility="collapsed")
+                sat_beacon_id = st.text_input("Satellite Beacon IMEI/PTT", value=default_sat_beacon_id, key=f"sat_beacon_id{widget_key_suffix}", label_visibility="collapsed")
 
             # RF Beacon row
             col_name, col_sn, col_imei = st.columns([2, 2, 2])
             with col_name:
                 st.markdown("RF Beacon")
             with col_sn:
-                rf_beacon_sn = st.text_input("RF Beacon S/N", value=default_rf_beacon_sn, key="rf_beacon_sn", label_visibility="collapsed")
+                rf_beacon_sn = st.text_input("RF Beacon S/N", value=default_rf_beacon_sn, key=f"rf_beacon_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_imei:
-                rf_beacon_id = st.text_input("RF Beacon IMEI/PTT", value=default_rf_beacon_id, placeholder="Ch/Freq: 70/165.525 MHz", key="rf_beacon_id", label_visibility="collapsed")
+                rf_beacon_id = st.text_input("RF Beacon IMEI/PTT", value=default_rf_beacon_id, placeholder="Ch/Freq: 70/165.525 MHz", key=f"rf_beacon_id{widget_key_suffix}", label_visibility="collapsed")
 
             # Flasher row
             col_name, col_sn, col_imei = st.columns([2, 2, 2])
             with col_name:
                 st.markdown("Flasher")
             with col_sn:
-                flasher_sn = st.text_input("Flasher S/N", value=default_flasher_sn, key="flasher_sn", label_visibility="collapsed")
+                flasher_sn = st.text_input("Flasher S/N", value=default_flasher_sn, key=f"flasher_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_imei:
-                flasher_id = st.text_input("Flasher IMEI/PTT", value=default_flasher_id, placeholder="Pattern: 2 sec ON/4 sec OFF", key="flasher_id", label_visibility="collapsed")
+                flasher_id = st.text_input("Flasher IMEI/PTT", value=default_flasher_id, placeholder="Pattern: 2 sec ON/4 sec OFF", key=f"flasher_id{widget_key_suffix}", label_visibility="collapsed")
 
         # MIDDLE: VERTICAL DIVIDER
         with col_divider:
@@ -1265,33 +1274,33 @@ def main():
             with col_name:
                 st.markdown("ADCP")
             with col_type:
-                adcp_type = st.text_input("ADCP Type", value="ADCP", key="adcp_type", disabled=True, label_visibility="collapsed")
+                adcp_type = st.text_input("ADCP Type", value="ADCP", key=f"adcp_type{widget_key_suffix}", disabled=True, label_visibility="collapsed")
             with col_sn:
-                adcp_sn = st.text_input("ADCP S/N", value=default_adcp_sn, key="adcp_sn", label_visibility="collapsed")
+                adcp_sn = st.text_input("ADCP S/N", value=default_adcp_sn, key=f"adcp_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_distance:
-                adcp_distance = st.text_input("ADCP Distance", value="", placeholder="0", key="adcp_distance", disabled=True, label_visibility="collapsed")
+                adcp_distance = st.text_input("ADCP Distance", value="", placeholder="0", key=f"adcp_distance{widget_key_suffix}", disabled=True, label_visibility="collapsed")
 
             # P Sensor 1 row
             col_name, col_type, col_sn, col_distance = st.columns([1.5, 1.5, 1.5, 2])
             with col_name:
                 st.markdown("P Sensor 1")
             with col_type:
-                instr1_type = st.text_input("P Sensor 1 Type", value=default_instr1_type, key="instr1_type", label_visibility="collapsed")
+                instr1_type = st.text_input("P Sensor 1 Type", value=default_instr1_type, key=f"instr1_type{widget_key_suffix}", label_visibility="collapsed")
             with col_sn:
-                instr1_sn = st.text_input("P Sensor 1 S/N", value=default_instr1_sn, key="instr1_sn", label_visibility="collapsed")
+                instr1_sn = st.text_input("P Sensor 1 S/N", value=default_instr1_sn, key=f"instr1_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_distance:
-                instr1_distance_from_adcp = st.text_input("P Sensor 1 Distance", value=default_instr1_distance_from_adcp, key="instr1_distance_from_adcp", label_visibility="collapsed")
+                instr1_distance_from_adcp = st.text_input("P Sensor 1 Distance", value=default_instr1_distance_from_adcp, key=f"instr1_distance_from_adcp{widget_key_suffix}", label_visibility="collapsed")
 
             # P Sensor 2 row
             col_name, col_type, col_sn, col_distance = st.columns([1.5, 1.5, 1.5, 2])
             with col_name:
                 st.markdown("P Sensor 2")
             with col_type:
-                instr2_type = st.text_input("P Sensor 2 Type", value=default_instr2_type, key="instr2_type", label_visibility="collapsed")
+                instr2_type = st.text_input("P Sensor 2 Type", value=default_instr2_type, key=f"instr2_type{widget_key_suffix}", label_visibility="collapsed")
             with col_sn:
-                instr2_sn = st.text_input("P Sensor 2 S/N", value=default_instr2_sn, key="instr2_sn", label_visibility="collapsed")
+                instr2_sn = st.text_input("P Sensor 2 S/N", value=default_instr2_sn, key=f"instr2_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_distance:
-                instr2_distance_from_adcp = st.text_input("P Sensor 2 Distance", value=default_instr2_distance_from_adcp, key="instr2_distance_from_adcp", label_visibility="collapsed")
+                instr2_distance_from_adcp = st.text_input("P Sensor 2 Distance", value=default_instr2_distance_from_adcp, key=f"instr2_distance_from_adcp{widget_key_suffix}", label_visibility="collapsed")
 
         st.markdown("---")
 
@@ -1318,77 +1327,77 @@ def main():
             with col_num:
                 st.markdown("1")
             with col_sn:
-                line1_sn = st.text_input("Line 1 S/N", value=default_line1_sn, key="line1_sn", label_visibility="collapsed")
+                line1_sn = st.text_input("Line 1 S/N", value=default_line1_sn, key=f"line1_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_length:
-                line1_len = st.text_input("Line 1 Length", value=default_line1_len, key="line1_len", label_visibility="collapsed")
+                line1_len = st.text_input("Line 1 Length", value=default_line1_len, key=f"line1_len{widget_key_suffix}", label_visibility="collapsed")
             with col_type:
-                line1_type = st.text_input("Line 1 Type", value=default_line1_type, key="line1_type", label_visibility="collapsed")
+                line1_type = st.text_input("Line 1 Type", value=default_line1_type, key=f"line1_type{widget_key_suffix}", label_visibility="collapsed")
 
             # Line 2
             col_num, col_sn, col_length, col_type = st.columns([1, 2, 2, 2])
             with col_num:
                 st.markdown("2")
             with col_sn:
-                line2_sn = st.text_input("Line 2 S/N", value=default_line2_sn, key="line2_sn", label_visibility="collapsed")
+                line2_sn = st.text_input("Line 2 S/N", value=default_line2_sn, key=f"line2_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_length:
-                line2_len = st.text_input("Line 2 Length", value=default_line2_len, key="line2_len", label_visibility="collapsed")
+                line2_len = st.text_input("Line 2 Length", value=default_line2_len, key=f"line2_len{widget_key_suffix}", label_visibility="collapsed")
             with col_type:
-                line2_type = st.text_input("Line 2 Type", value=default_line2_type, key="line2_type", label_visibility="collapsed")
+                line2_type = st.text_input("Line 2 Type", value=default_line2_type, key=f"line2_type{widget_key_suffix}", label_visibility="collapsed")
 
             # Line 3
             col_num, col_sn, col_length, col_type = st.columns([1, 2, 2, 2])
             with col_num:
                 st.markdown("3")
             with col_sn:
-                line3_sn = st.text_input("Line 3 S/N", value=default_line3_sn, key="line3_sn", label_visibility="collapsed")
+                line3_sn = st.text_input("Line 3 S/N", value=default_line3_sn, key=f"line3_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_length:
-                line3_len = st.text_input("Line 3 Length", value=default_line3_len, key="line3_len", label_visibility="collapsed")
+                line3_len = st.text_input("Line 3 Length", value=default_line3_len, key=f"line3_len{widget_key_suffix}", label_visibility="collapsed")
             with col_type:
-                line3_type = st.text_input("Line 3 Type", value=default_line3_type, key="line3_type", label_visibility="collapsed")
+                line3_type = st.text_input("Line 3 Type", value=default_line3_type, key=f"line3_type{widget_key_suffix}", label_visibility="collapsed")
 
             # Line 4
             col_num, col_sn, col_length, col_type = st.columns([1, 2, 2, 2])
             with col_num:
                 st.markdown("4")
             with col_sn:
-                line4_sn = st.text_input("Line 4 S/N", value=default_line4_sn, key="line4_sn", label_visibility="collapsed")
+                line4_sn = st.text_input("Line 4 S/N", value=default_line4_sn, key=f"line4_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_length:
-                line4_len = st.text_input("Line 4 Length", value=default_line4_len, key="line4_len", label_visibility="collapsed")
+                line4_len = st.text_input("Line 4 Length", value=default_line4_len, key=f"line4_len{widget_key_suffix}", label_visibility="collapsed")
             with col_type:
-                line4_type = st.text_input("Line 4 Type", value=default_line4_type, key="line4_type", label_visibility="collapsed")
+                line4_type = st.text_input("Line 4 Type", value=default_line4_type, key=f"line4_type{widget_key_suffix}", label_visibility="collapsed")
 
             # Line 5
             col_num, col_sn, col_length, col_type = st.columns([1, 2, 2, 2])
             with col_num:
                 st.markdown("5")
             with col_sn:
-                line5_sn = st.text_input("Line 5 S/N", value=default_line5_sn, key="line5_sn", label_visibility="collapsed")
+                line5_sn = st.text_input("Line 5 S/N", value=default_line5_sn, key=f"line5_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_length:
-                line5_len = st.text_input("Line 5 Length", value=default_line5_len, key="line5_len", label_visibility="collapsed")
+                line5_len = st.text_input("Line 5 Length", value=default_line5_len, key=f"line5_len{widget_key_suffix}", label_visibility="collapsed")
             with col_type:
-                line5_type = st.text_input("Line 5 Type", value=default_line5_type, key="line5_type", label_visibility="collapsed")
+                line5_type = st.text_input("Line 5 Type", value=default_line5_type, key=f"line5_type{widget_key_suffix}", label_visibility="collapsed")
 
             # Line 6
             col_num, col_sn, col_length, col_type = st.columns([1, 2, 2, 2])
             with col_num:
                 st.markdown("6")
             with col_sn:
-                line6_sn = st.text_input("Line 6 S/N", value=default_line6_sn, key="line6_sn", label_visibility="collapsed")
+                line6_sn = st.text_input("Line 6 S/N", value=default_line6_sn, key=f"line6_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_length:
-                line6_len = st.text_input("Line 6 Length", value=default_line6_len, key="line6_len", label_visibility="collapsed")
+                line6_len = st.text_input("Line 6 Length", value=default_line6_len, key=f"line6_len{widget_key_suffix}", label_visibility="collapsed")
             with col_type:
-                line6_type = st.text_input("Line 6 Type", value=default_line6_type, key="line6_type", label_visibility="collapsed")
+                line6_type = st.text_input("Line 6 Type", value=default_line6_type, key=f"line6_type{widget_key_suffix}", label_visibility="collapsed")
 
             # Line 7
             col_num, col_sn, col_length, col_type = st.columns([1, 2, 2, 2])
             with col_num:
                 st.markdown("7")
             with col_sn:
-                line7_sn = st.text_input("Line 7 S/N", value=default_line7_sn, key="line7_sn", label_visibility="collapsed")
+                line7_sn = st.text_input("Line 7 S/N", value=default_line7_sn, key=f"line7_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_length:
-                line7_len = st.text_input("Line 7 Length", value=default_line7_len, key="line7_len", label_visibility="collapsed")
+                line7_len = st.text_input("Line 7 Length", value=default_line7_len, key=f"line7_len{widget_key_suffix}", label_visibility="collapsed")
             with col_type:
-                line7_type = st.text_input("Line 7 Type", value=default_line7_type, key="line7_type", label_visibility="collapsed")
+                line7_type = st.text_input("Line 7 Type", value=default_line7_type, key=f"line7_type{widget_key_suffix}", label_visibility="collapsed")
 
             # Calculate total length
             def safe_float(value):
@@ -1414,19 +1423,19 @@ def main():
             st.markdown("## Depths and Lengths")
 
             # Req. ADCP Head Depth
-            req_adcp_head_depth = st.text_input("Req. ADCP Head Depth", value=default_req_adcp_head_depth, key="req_adcp_head_depth")
+            req_adcp_head_depth = st.text_input("Req. ADCP Head Depth", value=default_req_adcp_head_depth, key=f"req_adcp_head_depth{widget_key_suffix}")
 
             # Bottom Depth
-            bottom_depth = st.text_input("Bottom Depth", value=default_bottom_depth, key="bottom_depth")
+            bottom_depth = st.text_input("Bottom Depth", value=default_bottom_depth, key=f"bottom_depth{widget_key_suffix}")
 
             # Nylon Below Float Ball
-            nylon_below_float_ball = st.text_input("Nylon Below Float Ball", value=default_nylon_below_float_ball, key="nylon_below_float_ball")
+            nylon_below_float_ball = st.text_input("Nylon Below Float Ball", value=default_nylon_below_float_ball, key=f"nylon_below_float_ball{widget_key_suffix}")
 
             # Nylon Below Release
-            nylon_below_release = st.text_input("Nylon Below Release", value=default_nylon_below_release, key="nylon_below_release")
+            nylon_below_release = st.text_input("Nylon Below Release", value=default_nylon_below_release, key=f"nylon_below_release{widget_key_suffix}")
 
             # Instrument and Hardware Length
-            instrument_hardware_length = st.text_input("Instrument and Hardware Length", value=default_instrument_hardware_length, key="instrument_hardware_length")
+            instrument_hardware_length = st.text_input("Instrument and Hardware Length", value=default_instrument_hardware_length, key=f"instrument_hardware_length{widget_key_suffix}")
 
 
         # Calculate summary values after all inputs are defined
@@ -1458,7 +1467,7 @@ def main():
             # Clear the copied value after using it
             st.session_state.copied_nylon_cut = None
 
-        actual_nylon_cut = st.text_input("**Actual Nylon Cut Length (above release)**", value=nylon_cut_value, key="actual_nylon_cut")
+        actual_nylon_cut = st.text_input("**Actual Nylon Cut Length (above release)**", value=nylon_cut_value, key=f"actual_nylon_cut{widget_key_suffix}")
 
         # Total Mooring Length - calculated field
         actual_nylon_cut_val = safe_float_calc(actual_nylon_cut)
@@ -1497,30 +1506,30 @@ def main():
         # Top Release Row
         col_top = st.columns([1, 1, 1.5, 1, 1, 1, 1, 1, 1, 1.2, 1.2])
         col_top[0].write("Top")
-        top_type = col_top[1].text_input("Top Release Type", value=default_top_release_type, key="top_release_type", label_visibility="collapsed")
-        top_sn = col_top[2].text_input("Top Release S/N", value=default_top_release_sn, key="top_release_sn", label_visibility="collapsed")
-        top_int_freq = col_top[3].text_input("Top Release Int. Freq.", value=default_top_release_int_freq, key="top_release_int_freq", label_visibility="collapsed")
-        top_reply = col_top[4].text_input("Top Release Reply", value=default_top_release_reply, key="top_release_reply", label_visibility="collapsed")
-        top_release = col_top[5].text_input("Top Release Release", value=default_top_release_release, key="top_release_release", label_visibility="collapsed")
-        top_disable = col_top[6].text_input("Top Release Disable", value=default_top_release_disable, key="top_release_disable", label_visibility="collapsed")
-        top_enable = col_top[7].text_input("Top Release Enable", value=default_top_release_enable, key="top_release_enable", label_visibility="collapsed")
-        top_new = col_top[8].selectbox("Top Release New", options=["", "Yes", "No"], index=0 if not default_top_release_new else (1 if default_top_release_new == "Yes" else 2), key="top_release_new", label_visibility="collapsed")
-        top_2nd_dep = col_top[9].selectbox("Top Release 2nd Dep", options=["", "Yes", "No"], index=0 if not default_top_release_2nd_dep else (1 if default_top_release_2nd_dep == "Yes" else 2), key="top_release_2nd_dep", label_visibility="collapsed")
-        top_rebatteried = col_top[10].selectbox("Top Release Rebatteried", options=["", "Yes", "No"], index=0 if not default_top_release_rebatteried else (1 if default_top_release_rebatteried == "Yes" else 2), key="top_release_rebatteried", label_visibility="collapsed")
+        top_type = col_top[1].text_input("Top Release Type", value=default_top_release_type, key=f"top_release_type{widget_key_suffix}", label_visibility="collapsed")
+        top_sn = col_top[2].text_input("Top Release S/N", value=default_top_release_sn, key=f"top_release_sn{widget_key_suffix}", label_visibility="collapsed")
+        top_int_freq = col_top[3].text_input("Top Release Int. Freq.", value=default_top_release_int_freq, key=f"top_release_int_freq{widget_key_suffix}", label_visibility="collapsed")
+        top_reply = col_top[4].text_input("Top Release Reply", value=default_top_release_reply, key=f"top_release_reply{widget_key_suffix}", label_visibility="collapsed")
+        top_release = col_top[5].text_input("Top Release Release", value=default_top_release_release, key=f"top_release_release{widget_key_suffix}", label_visibility="collapsed")
+        top_disable = col_top[6].text_input("Top Release Disable", value=default_top_release_disable, key=f"top_release_disable{widget_key_suffix}", label_visibility="collapsed")
+        top_enable = col_top[7].text_input("Top Release Enable", value=default_top_release_enable, key=f"top_release_enable{widget_key_suffix}", label_visibility="collapsed")
+        top_new = col_top[8].selectbox("Top Release New", options=["", "Yes", "No"], index=0 if not default_top_release_new else (1 if default_top_release_new == "Yes" else 2), key=f"top_release_new{widget_key_suffix}", label_visibility="collapsed")
+        top_2nd_dep = col_top[9].selectbox("Top Release 2nd Dep", options=["", "Yes", "No"], index=0 if not default_top_release_2nd_dep else (1 if default_top_release_2nd_dep == "Yes" else 2), key=f"top_release_2nd_dep{widget_key_suffix}", label_visibility="collapsed")
+        top_rebatteried = col_top[10].selectbox("Top Release Rebatteried", options=["", "Yes", "No"], index=0 if not default_top_release_rebatteried else (1 if default_top_release_rebatteried == "Yes" else 2), key=f"top_release_rebatteried{widget_key_suffix}", label_visibility="collapsed")
 
         # Bottom Release Row
         col_bottom = st.columns([1, 1, 1.5, 1, 1, 1, 1, 1, 1, 1.2, 1.2])
         col_bottom[0].write("Bottom")
-        bottom_type = col_bottom[1].text_input("Bottom Release Type", value=default_bottom_release_type, key="bottom_release_type", label_visibility="collapsed")
-        bottom_sn = col_bottom[2].text_input("Bottom Release S/N", value=default_bottom_release_sn, key="bottom_release_sn", label_visibility="collapsed")
-        bottom_int_freq = col_bottom[3].text_input("Bottom Release Int. Freq.", value=default_bottom_release_int_freq, key="bottom_release_int_freq", label_visibility="collapsed")
-        bottom_reply = col_bottom[4].text_input("Bottom Release Reply", value=default_bottom_release_reply, key="bottom_release_reply", label_visibility="collapsed")
-        bottom_release = col_bottom[5].text_input("Bottom Release Release", value=default_bottom_release_release, key="bottom_release_release", label_visibility="collapsed")
-        bottom_disable = col_bottom[6].text_input("Bottom Release Disable", value=default_bottom_release_disable, key="bottom_release_disable", label_visibility="collapsed")
-        bottom_enable = col_bottom[7].text_input("Bottom Release Enable", value=default_bottom_release_enable, key="bottom_release_enable", label_visibility="collapsed")
-        bottom_new = col_bottom[8].selectbox("Bottom Release New", options=["", "Yes", "No"], index=0 if not default_bottom_release_new else (1 if default_bottom_release_new == "Yes" else 2), key="bottom_release_new", label_visibility="collapsed")
-        bottom_2nd_dep = col_bottom[9].selectbox("Bottom Release 2nd Dep", options=["", "Yes", "No"], index=0 if not default_bottom_release_2nd_dep else (1 if default_bottom_release_2nd_dep == "Yes" else 2), key="bottom_release_2nd_dep", label_visibility="collapsed")
-        bottom_rebatteried = col_bottom[10].selectbox("Bottom Release Rebatteried", options=["", "Yes", "No"], index=0 if not default_bottom_release_rebatteried else (1 if default_bottom_release_rebatteried == "Yes" else 2), key="bottom_release_rebatteried", label_visibility="collapsed")
+        bottom_type = col_bottom[1].text_input("Bottom Release Type", value=default_bottom_release_type, key=f"bottom_release_type{widget_key_suffix}", label_visibility="collapsed")
+        bottom_sn = col_bottom[2].text_input("Bottom Release S/N", value=default_bottom_release_sn, key=f"bottom_release_sn{widget_key_suffix}", label_visibility="collapsed")
+        bottom_int_freq = col_bottom[3].text_input("Bottom Release Int. Freq.", value=default_bottom_release_int_freq, key=f"bottom_release_int_freq{widget_key_suffix}", label_visibility="collapsed")
+        bottom_reply = col_bottom[4].text_input("Bottom Release Reply", value=default_bottom_release_reply, key=f"bottom_release_reply{widget_key_suffix}", label_visibility="collapsed")
+        bottom_release = col_bottom[5].text_input("Bottom Release Release", value=default_bottom_release_release, key=f"bottom_release_release{widget_key_suffix}", label_visibility="collapsed")
+        bottom_disable = col_bottom[6].text_input("Bottom Release Disable", value=default_bottom_release_disable, key=f"bottom_release_disable{widget_key_suffix}", label_visibility="collapsed")
+        bottom_enable = col_bottom[7].text_input("Bottom Release Enable", value=default_bottom_release_enable, key=f"bottom_release_enable{widget_key_suffix}", label_visibility="collapsed")
+        bottom_new = col_bottom[8].selectbox("Bottom Release New", options=["", "Yes", "No"], index=0 if not default_bottom_release_new else (1 if default_bottom_release_new == "Yes" else 2), key=f"bottom_release_new{widget_key_suffix}", label_visibility="collapsed")
+        bottom_2nd_dep = col_bottom[9].selectbox("Bottom Release 2nd Dep", options=["", "Yes", "No"], index=0 if not default_bottom_release_2nd_dep else (1 if default_bottom_release_2nd_dep == "Yes" else 2), key=f"bottom_release_2nd_dep{widget_key_suffix}", label_visibility="collapsed")
+        bottom_rebatteried = col_bottom[10].selectbox("Bottom Release Rebatteried", options=["", "Yes", "No"], index=0 if not default_bottom_release_rebatteried else (1 if default_bottom_release_rebatteried == "Yes" else 2), key=f"bottom_release_rebatteried{widget_key_suffix}", label_visibility="collapsed")
 
         st.markdown("---")
 
@@ -1535,29 +1544,29 @@ def main():
 
             with anchor_left:
                 st.write("**Date**")
-                anchor_drop_date = st.text_input("Anchor Drop Date", value=default_anchor_drop_date, key="anchor_drop_date", label_visibility="collapsed")
+                anchor_drop_date = st.text_input("Anchor Drop Date", value=default_anchor_drop_date, key=f"anchor_drop_date{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Latitude**")
-                anchor_drop_latitude = st.text_input("Anchor Drop Latitude", value=default_anchor_drop_latitude, key="anchor_drop_latitude", label_visibility="collapsed")
+                anchor_drop_latitude = st.text_input("Anchor Drop Latitude", value=default_anchor_drop_latitude, key=f"anchor_drop_latitude{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Depth**")
-                anchor_drop_depth = st.text_input("Anchor Drop Depth", value=default_anchor_drop_depth, key="anchor_drop_depth", label_visibility="collapsed")
+                anchor_drop_depth = st.text_input("Anchor Drop Depth", value=default_anchor_drop_depth, key=f"anchor_drop_depth{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Depth Correction**")
-                anchor_depth_correction = st.text_input("Anchor Depth Correction", value=default_anchor_depth_correction, key="anchor_depth_correction", label_visibility="collapsed")
+                anchor_depth_correction = st.text_input("Anchor Depth Correction", value=default_anchor_depth_correction, key=f"anchor_depth_correction{widget_key_suffix}", label_visibility="collapsed")
 
             with anchor_right:
                 st.write("**Time**")
-                anchor_drop_time = st.text_input("Anchor Drop Time", value=default_anchor_drop_time, key="anchor_drop_time", label_visibility="collapsed")
+                anchor_drop_time = st.text_input("Anchor Drop Time", value=default_anchor_drop_time, key=f"anchor_drop_time{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Longitude**")
-                anchor_drop_longitude = st.text_input("Anchor Drop Longitude", value=default_anchor_drop_longitude, key="anchor_drop_longitude", label_visibility="collapsed")
+                anchor_drop_longitude = st.text_input("Anchor Drop Longitude", value=default_anchor_drop_longitude, key=f"anchor_drop_longitude{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Anchor Weight**")
-                anchor_weight = st.text_input("Anchor Weight", value=default_anchor_weight, key="anchor_weight", label_visibility="collapsed")
+                anchor_weight = st.text_input("Anchor Weight", value=default_anchor_weight, key=f"anchor_weight{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Corrected Depth**")
-                anchor_corrected_depth = st.text_input("Anchor Corrected Depth", value=default_anchor_corrected_depth, key="anchor_corrected_depth", label_visibility="collapsed")
+                anchor_corrected_depth = st.text_input("Anchor Corrected Depth", value=default_anchor_corrected_depth, key=f"anchor_corrected_depth{widget_key_suffix}", label_visibility="collapsed")
 
         with divider_col:
             st.markdown("""
@@ -1572,21 +1581,21 @@ def main():
 
             with flyby_left:
                 st.write("**Latitude**")
-                flyby_latitude = st.text_input("Flyby Latitude", value=default_flyby_latitude, key="flyby_latitude", label_visibility="collapsed")
+                flyby_latitude = st.text_input("Flyby Latitude", value=default_flyby_latitude, key=f"flyby_latitude{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Corrected Depth**")
-                flyby_corrected_depth = st.text_input("Flyby Corrected Depth", value=default_flyby_corrected_depth, key="flyby_corrected_depth", label_visibility="collapsed")
+                flyby_corrected_depth = st.text_input("Flyby Corrected Depth", value=default_flyby_corrected_depth, key=f"flyby_corrected_depth{widget_key_suffix}", label_visibility="collapsed")
 
             with flyby_right:
                 st.write("**Longitude**")
-                flyby_longitude = st.text_input("Flyby Longitude", value=default_flyby_longitude, key="flyby_longitude", label_visibility="collapsed")
+                flyby_longitude = st.text_input("Flyby Longitude", value=default_flyby_longitude, key=f"flyby_longitude{widget_key_suffix}", label_visibility="collapsed")
 
                 st.write("**Method Used**")
                 flyby_method_options = ["", "fatho", "triangulated"]
                 flyby_method_index = 0
                 if default_flyby_method in flyby_method_options:
                     flyby_method_index = flyby_method_options.index(default_flyby_method)
-                flyby_method = st.selectbox("Flyby Method", options=flyby_method_options, index=flyby_method_index, key="flyby_method", label_visibility="collapsed")
+                flyby_method = st.selectbox("Flyby Method", options=flyby_method_options, index=flyby_method_index, key=f"flyby_method{widget_key_suffix}", label_visibility="collapsed")
 
         st.markdown("---")
 
@@ -1626,21 +1635,21 @@ def main():
         with hist_row1[0]:
             st.write("**ADCP Xducer Depth (obtained by ball-set MTPR)**")
         with hist_row1[1]:
-            adcp_xducer_depth = st.text_input("ADCP Xducer Depth", value=default_adcp_xducer_depth, key="adcp_xducer_depth", label_visibility="collapsed")
+            adcp_xducer_depth = st.text_input("ADCP Xducer Depth", value=default_adcp_xducer_depth, key=f"adcp_xducer_depth{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 2: Measured Distance
         hist_row2 = st.columns([3, 2])
         with hist_row2[0]:
             st.write("**Measured Distance - MTPR On Ball Set To ADCP Head**")
         with hist_row2[1]:
-            measured_distance_mtpr = st.text_input("Measured Distance MTPR", value=default_measured_distance_mtpr, key="measured_distance_mtpr", label_visibility="collapsed")
+            measured_distance_mtpr = st.text_input("Measured Distance MTPR", value=default_measured_distance_mtpr, key=f"measured_distance_mtpr{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 3: MTPR Turn on Time and Date
         hist_row3 = st.columns([3, 2])
         with hist_row3[0]:
             st.write("**MTPR Turn on Time and Date**")
         with hist_row3[1]:
-            mtpr_turn_on_datetime = st.text_input("MTPR Turn on Time and Date", value=default_mtpr_turn_on_datetime, key="mtpr_turn_on_datetime", label_visibility="collapsed")
+            mtpr_turn_on_datetime = st.text_input("MTPR Turn on Time and Date", value=default_mtpr_turn_on_datetime, key=f"mtpr_turn_on_datetime{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 4: Argos Beacon Deployment Usage
         hist_row4 = st.columns([3, 2])
@@ -1651,28 +1660,28 @@ def main():
             argos_usage_index = 0
             if default_argos_beacon_usage in argos_usage_options:
                 argos_usage_index = argos_usage_options.index(default_argos_beacon_usage)
-            argos_beacon_usage = st.selectbox("Argos Beacon Usage", options=argos_usage_options, index=argos_usage_index, key="argos_beacon_usage", label_visibility="collapsed")
+            argos_beacon_usage = st.selectbox("Argos Beacon Usage", options=argos_usage_options, index=argos_usage_index, key=f"argos_beacon_usage{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 5: Hardware Length
         hist_row5 = st.columns([3, 2])
         with hist_row5[0]:
             st.write("**Hardware Length**")
         with hist_row5[1]:
-            hardware_length = st.text_input("Hardware Length", value=default_hardware_length, key="hardware_length", label_visibility="collapsed")
+            hardware_length = st.text_input("Hardware Length", value=default_hardware_length, key=f"hardware_length{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 6: Kevlar Main Spool
         hist_row6 = st.columns([3, 2])
         with hist_row6[0]:
             st.write("**Kevlar Main Spool (stretched length)**")
         with hist_row6[1]:
-            kevlar_main_spool = st.text_input("Kevlar Main Spool", value=default_kevlar_main_spool, key="kevlar_main_spool", label_visibility="collapsed")
+            kevlar_main_spool = st.text_input("Kevlar Main Spool", value=default_kevlar_main_spool, key=f"kevlar_main_spool{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 7: Additional Kevlar
         hist_row7 = st.columns([3, 2])
         with hist_row7[0]:
             st.write("**Additional Kevlar (stretched length)**")
         with hist_row7[1]:
-            additional_kevlar = st.text_input("Additional Kevlar", value=default_additional_kevlar, key="additional_kevlar", label_visibility="collapsed")
+            additional_kevlar = st.text_input("Additional Kevlar", value=default_additional_kevlar, key=f"additional_kevlar{widget_key_suffix}", label_visibility="collapsed")
 
         # Row 8: Total Kevlar Length - calculated field
         hist_row8 = st.columns([3, 2])
@@ -1690,16 +1699,16 @@ def main():
             else:
                 total_kevlar_display = default_total_kevlar_length
 
-            total_kevlar_length = st.text_input("Total Kevlar Length", value=total_kevlar_display, key="total_kevlar_length", label_visibility="collapsed", disabled=True)
+            total_kevlar_length = st.text_input("Total Kevlar Length", value=total_kevlar_display, key=f"total_kevlar_length{widget_key_suffix}", label_visibility="collapsed", disabled=True)
 
         # Row 9: Ball set Release Coordinates
         hist_row9 = st.columns([1, 1])
         with hist_row9[0]:
             st.write("**Ball set Rel. Lat.**")
-            ball_set_rel_lat = st.text_input("Ball set Rel. Lat.", value=default_ball_set_rel_lat, key="ball_set_rel_lat", label_visibility="collapsed")
+            ball_set_rel_lat = st.text_input("Ball set Rel. Lat.", value=default_ball_set_rel_lat, key=f"ball_set_rel_lat{widget_key_suffix}", label_visibility="collapsed")
         with hist_row9[1]:
             st.write("**Ball set Rel. Lon.**")
-            ball_set_rel_lon = st.text_input("Ball set Rel. Lon.", value=default_ball_set_rel_lon, key="ball_set_rel_lon", label_visibility="collapsed")
+            ball_set_rel_lon = st.text_input("Ball set Rel. Lon.", value=default_ball_set_rel_lon, key=f"ball_set_rel_lon{widget_key_suffix}", label_visibility="collapsed")
 
         # Ball-Set Release subsection
         st.markdown("##### Ball-Set Release")
@@ -1718,13 +1727,13 @@ def main():
         # First data row
         ball_release_row1 = st.columns([1.5, 1.5, 1.5, 1.5])
         with ball_release_row1[0]:
-            ball_release_type = st.text_input("Ball Release Type", value=default_ball_release_type, key="ball_release_type", label_visibility="collapsed", disabled=True, placeholder="N/A")
+            ball_release_type = st.text_input("Ball Release Type", value=default_ball_release_type, key=f"ball_release_type{widget_key_suffix}", label_visibility="collapsed", disabled=True, placeholder="N/A")
         with ball_release_row1[1]:
-            ball_release_int_freq = st.text_input("Ball Release Int. Freq", value=default_ball_release_int_freq, key="ball_release_int_freq", label_visibility="collapsed")
+            ball_release_int_freq = st.text_input("Ball Release Int. Freq", value=default_ball_release_int_freq, key=f"ball_release_int_freq{widget_key_suffix}", label_visibility="collapsed")
         with ball_release_row1[2]:
-            ball_release_reply = st.text_input("Ball Release Reply", value=default_ball_release_reply, key="ball_release_reply", label_visibility="collapsed")
+            ball_release_reply = st.text_input("Ball Release Reply", value=default_ball_release_reply, key=f"ball_release_reply{widget_key_suffix}", label_visibility="collapsed")
         with ball_release_row1[3]:
-            ball_release_release = st.text_input("Ball Release Release", value=default_ball_release_release, key="ball_release_release", label_visibility="collapsed")
+            ball_release_release = st.text_input("Ball Release Release", value=default_ball_release_release, key=f"ball_release_release{widget_key_suffix}", label_visibility="collapsed")
 
         # Second data row
         ball_release_row2 = st.columns([1.5, 1.5, 1.5, 1.5])
@@ -1740,13 +1749,13 @@ def main():
         # Third data row
         ball_release_row3 = st.columns([1.5, 1.5, 1.5, 1.5])
         with ball_release_row3[0]:
-            ball_release_sn = st.text_input("Ball Release S/N", value=default_ball_release_sn, key="ball_release_sn", label_visibility="collapsed", disabled=True, placeholder="N/A")
+            ball_release_sn = st.text_input("Ball Release S/N", value=default_ball_release_sn, key=f"ball_release_sn{widget_key_suffix}", label_visibility="collapsed", disabled=True, placeholder="N/A")
         with ball_release_row3[1]:
             st.write("")  # Empty cell
         with ball_release_row3[2]:
             st.write("")  # Empty cell
         with ball_release_row3[3]:
-            ball_release_disable = st.text_input("Ball Release Disable", value=default_ball_release_disable, key="ball_release_disable", label_visibility="collapsed")
+            ball_release_disable = st.text_input("Ball Release Disable", value=default_ball_release_disable, key=f"ball_release_disable{widget_key_suffix}", label_visibility="collapsed")
 
         # Fourth data row
         ball_release_row4 = st.columns([1.5, 1.5, 1.5, 1.5])
@@ -1768,7 +1777,7 @@ def main():
         with ball_release_row5[2]:
             st.write("")  # Empty cell
         with ball_release_row5[3]:
-            ball_release_enable = st.text_input("Ball Release Enable", value=default_ball_release_enable, key="ball_release_enable", label_visibility="collapsed")
+            ball_release_enable = st.text_input("Ball Release Enable", value=default_ball_release_enable, key=f"ball_release_enable{widget_key_suffix}", label_visibility="collapsed")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1776,7 +1785,7 @@ def main():
 
         # Comments Section
         st.subheader("Comments")
-        comments = st.text_area("Comments", value=default_comments, height=600, key="comments", label_visibility="collapsed")
+        comments = st.text_area("Comments", value=default_comments, height=600, key=f"comments{widget_key_suffix}", label_visibility="collapsed")
 
         # Form submission buttons
         col_button, col_spacer = st.columns([1, 11])
