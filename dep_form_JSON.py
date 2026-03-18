@@ -1379,8 +1379,8 @@ def main():
         default_mooringid = record.get('mooringid', '')
         default_cruise = record.get('cruise', '')
         default_personnel = deployment_info.get('personnel', '')
-        default_lat = record.get('latitude', '')
-        default_long = record.get('longitude', '')
+        default_lat = flyby.get('buoy_latitude', '')
+        default_long = flyby.get('buoy_longitude', '')
         default_depth = record.get('depth', '')
         default_mooring_type = deployment_info.get('mooring_type', '')
 
