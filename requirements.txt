@@ -1,0 +1,24 @@
+# Cruise_Logs - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Web framework for forms and search interfaces
+streamlit>=1.28.0
+
+# Data manipulation and analysis
+pandas>=2.0.0
+
+# Excel file support
+xlrd>=2.0.1        # For reading .xls files
+openpyxl>=3.1.0    # For reading .xlsx files
+
+# XML processing (built-in, but listing for documentation)
+# xml.etree.ElementTree - included with Python
+
+# Database (built-in with Python)
+# sqlite3 - included with Python
+
+# Optional: For better Excel support
+et-xmlfile>=1.1.0
+
+# Optional: For numerical operations (if needed)
+numpy>=1.24.0
