@@ -632,7 +632,7 @@ def main():
         if st.session_state.search_results is not None and not st.session_state.search_results.empty:
             st.subheader("Search Results")
 
-            # Navigation and Mooring ID display
+            # Navigation
             if len(st.session_state.search_results) > 1:
                 col1, col2, col3 = st.columns([1, 3, 1])
                 with col1:
@@ -640,18 +640,11 @@ def main():
                         st.session_state.current_record_index -= 1
                         st.rerun()
                 with col2:
-                    current_record = st.session_state.search_results.iloc[st.session_state.current_record_index]
-                    mooring_id = current_record.get('mooring_id', 'N/A')
-                    st.markdown(f"<div style='text-align: center;'><span style='font-size: 24px; font-weight: bold; color: #1f77b4;'>Mooring ID: {mooring_id}</span><br><span style='font-size: 14px;'>Record {st.session_state.current_record_index + 1} of {len(st.session_state.search_results)}</span></div>", unsafe_allow_html=True)
+                    st.write(f"Record {st.session_state.current_record_index + 1} of {len(st.session_state.search_results)}")
                 with col3:
                     if st.button("Next ▶", disabled=st.session_state.current_record_index >= len(st.session_state.search_results) - 1):
                         st.session_state.current_record_index += 1
                         st.rerun()
-            elif len(st.session_state.search_results) == 1:
-                # Display mooring ID even for single result
-                current_record = st.session_state.search_results.iloc[0]
-                mooring_id = current_record.get('mooring_id', 'N/A')
-                st.markdown(f"<div style='text-align: center;'><span style='font-size: 24px; font-weight: bold; color: #1f77b4;'>Mooring ID: {mooring_id}</span><br><span style='font-size: 14px;'>1 Record Found</span></div>", unsafe_allow_html=True)
 
             # Get current record
             if len(st.session_state.search_results) > 0:
@@ -664,6 +657,17 @@ def main():
                     current_record_dict = dict(current_record)
 
                 st.session_state.selected_repair = current_record_dict
+
+                # Display key info
+                info_cols = st.columns(4)
+                with info_cols[0]:
+                    st.metric("Site", current_record_dict.get('site', 'N/A'))
+                with info_cols[1]:
+                    st.metric("Mooring ID", current_record_dict.get('mooring_id', 'N/A'))
+                with info_cols[2]:
+                    st.metric("Cruise", current_record_dict.get('cruise', 'N/A'))
+                with info_cols[3]:
+                    st.metric("Repair Date", current_record_dict.get('repair_date', 'N/A'))
 
     # Determine default values based on mode
     if mode == "Add New":
@@ -1114,7 +1118,12 @@ def main():
 
             record_id = None
 
-
+    # Create unique widget key suffix based on mode and record
+    # This prevents session state from one record interfering with another
+    if mode == "Search/Edit" and record_id is not None:
+        widget_key_suffix = f"_edit_{record_id}"
+    else:
+        widget_key_suffix = "_new"
 
     # Show the form in both modes
     if mode == "Add New" or mode == "Search/Edit":
@@ -1129,7 +1138,7 @@ def main():
             with col1:
                 if mode == "Add New":
                     # In Add New mode, use text input with autocomplete suggestions
-                    site = st.text_input("Site", value=default_site, key="site",
+                    site = st.text_input("Site", value=default_site, key=f"site{widget_key_suffix}",
                                        help="Enter site name (you can type a new site or select from existing)")
                     if available_sites:
                         st.caption(f"Existing sites: {', '.join(available_sites[:5])}{'...' if len(available_sites) > 5 else ''}")
@@ -1144,22 +1153,22 @@ def main():
                     else:
                         site_index = 0
 
-                    site_selection = st.selectbox("Site", options=site_options, index=site_index, key="site_dropdown")
+                    site_selection = st.selectbox("Site", options=site_options, index=site_index, key=f"site_dropdown{widget_key_suffix}")
 
                     if site_selection == "Other (specify below)":
-                        site = st.text_input("Specify site", value="", key="site_custom")
+                        site = st.text_input("Specify site", value="", key=f"site_custom{widget_key_suffix}")
                     else:
                         site = site_selection
 
             with col2:
-                mooring_id = st.text_input("Mooring ID", value=default_mooring_id, key="mooring_id")
+                mooring_id = st.text_input("Mooring ID", value=default_mooring_id, key=f"mooring_id{widget_key_suffix}")
 
             # Row 2: Cruise and Repair Date
             col3, col4 = st.columns(2)
             with col3:
                 if mode == "Add New":
                     # In Add New mode, use text input with autocomplete suggestions
-                    cruise = st.text_input("Cruise", value=default_cruise, key="cruise",
+                    cruise = st.text_input("Cruise", value=default_cruise, key=f"cruise{widget_key_suffix}",
                                          help="Enter cruise name (you can type a new cruise or select from existing)")
                     if available_cruises:
                         st.caption(f"Existing cruises: {', '.join(available_cruises[:5])}{'...' if len(available_cruises) > 5 else ''}")
@@ -1174,18 +1183,18 @@ def main():
                     else:
                         cruise_index = 0
 
-                    cruise_selection = st.selectbox("Cruise", options=cruise_options, index=cruise_index, key="cruise_dropdown")
+                    cruise_selection = st.selectbox("Cruise", options=cruise_options, index=cruise_index, key=f"cruise_dropdown{widget_key_suffix}")
 
                     if cruise_selection == "Other (specify below)":
-                        cruise = st.text_input("Specify cruise", value="", key="cruise_custom")
+                        cruise = st.text_input("Specify cruise", value="", key=f"cruise_custom{widget_key_suffix}")
                     else:
                         cruise = cruise_selection
 
             with col4:
-                repair_date = st.date_input("Repair Date", value=default_repair_date, key="repair_date", format="YYYY-MM-DD")
+                repair_date = st.date_input("Repair Date", value=default_repair_date, key=f"repair_date{widget_key_suffix}", format="YYYY-MM-DD")
 
             # Row 3: Personnel (full width)
-            personnel = st.text_input("Personnel", value=default_personnel, key="personnel",
+            personnel = st.text_input("Personnel", value=default_personnel, key=f"personnel{widget_key_suffix}",
                                      help="Enter personnel names involved in the repair")
 
             # Row 4: Argos Latitude and Argos Longitude
@@ -1193,27 +1202,27 @@ def main():
             with col5:
                 # Add placeholder text only for Add New mode
                 lat_placeholder = "DD mm.mm N/S" if mode == "Add New" else ""
-                argos_latitude = st.text_input("Argos Latitude", value=default_argos_latitude, key="argos_latitude",
+                argos_latitude = st.text_input("Argos Latitude", value=default_argos_latitude, key=f"argos_latitude{widget_key_suffix}",
                                               help="Enter latitude value", placeholder=lat_placeholder)
 
             with col6:
                 # Add placeholder text only for Add New mode
                 lon_placeholder = "DDD mm.mm E/W" if mode == "Add New" else ""
-                argos_longitude = st.text_input("Argos Longitude", value=default_argos_longitude, key="argos_longitude",
+                argos_longitude = st.text_input("Argos Longitude", value=default_argos_longitude, key=f"argos_longitude{widget_key_suffix}",
                                                help="Enter longitude value", placeholder=lon_placeholder)
 
             # Row 5: Start Repair Time and End Repair Time
             col7, col8 = st.columns(2)
             with col7:
                 start_repair_time = st.text_input("Start Repair Time", value=default_start_repair_time,
-                                                 key="start_repair_time", placeholder="HH:mm")
+                                                 key=f"start_repair_time{widget_key_suffix}", placeholder="HH:mm")
 
             with col8:
                 end_repair_time = st.text_input("End Repair Time", value=default_end_repair_time,
-                                               key="end_repair_time", placeholder="HH:mm")
+                                               key=f"end_repair_time{widget_key_suffix}", placeholder="HH:mm")
 
             # Row 6: Swap Time (full width)
-            swap_time = st.text_input("Swap Time", value=default_swap_time, key="swap_time",
+            swap_time = st.text_input("Swap Time", value=default_swap_time, key=f"swap_time{widget_key_suffix}",
                                      placeholder="HH:mm", help="Time when equipment swap occurred")
 
             # Hidden fields that still need to be captured but not displayed in main form
@@ -1226,34 +1235,34 @@ def main():
             # Row 1: Actual Latitude and Actual Longitude
             col9, col10 = st.columns(2)
             with col9:
-                actual_latitude = st.text_input("Latitude", value=default_actual_latitude, key="actual_latitude",
+                actual_latitude = st.text_input("Latitude", value=default_actual_latitude, key=f"actual_latitude{widget_key_suffix}",
                                                help="Actual latitude position")
 
             with col10:
-                actual_longitude = st.text_input("Longitude", value=default_actual_longitude, key="actual_longitude",
+                actual_longitude = st.text_input("Longitude", value=default_actual_longitude, key=f"actual_longitude{widget_key_suffix}",
                                                 help="Actual longitude position")
 
             # Row 2: Depth and CTD#
             col11, col12 = st.columns(2)
             with col11:
-                depth = st.text_input("Depth", value=default_depth, key="depth",
+                depth = st.text_input("Depth", value=default_depth, key=f"depth{widget_key_suffix}",
                                     help="Depth measurement")
 
             with col12:
-                ctd_number = st.text_input("CTD#", value=default_ctd_number, key="ctd_number",
+                ctd_number = st.text_input("CTD#", value=default_ctd_number, key=f"ctd_number{widget_key_suffix}",
                                          help="CTD number")
 
             # Buoy Condition text area (3 rows)
             buoy_condition = st.text_area("Buoy Condition",
                                          value=default_buoy_condition,
-                                         key="buoy_condition",
+                                         key=f"buoy_condition{widget_key_suffix}",
                                          height=75,  # Approximately 3 rows
                                          help="Describe the condition of the buoy")
 
             # Evidence of Fishing or Vandalism text area (3 rows)
             fishing_vandalism = st.text_area("Evidence of Fishing or Vandalism",
                                             value=default_fishing_vandalism,
-                                            key="fishing_vandalism",
+                                            key=f"fishing_vandalism{widget_key_suffix}",
                                             height=75,  # Approximately 3 rows
                                             help="Describe any evidence of fishing or vandalism")
 
@@ -1278,131 +1287,131 @@ def main():
             with col_label:
                 st.markdown("Tube")
             with col_old:
-                tube_old_sn = st.text_input("Tube Old S/N", value=default_tube_old_sn, key="tube_old_sn", label_visibility="collapsed")
+                tube_old_sn = st.text_input("Tube Old S/N", value=default_tube_old_sn, key=f"tube_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                tube_new_sn = st.text_input("Tube New S/N", value=default_tube_new_sn, key="tube_new_sn", label_visibility="collapsed")
+                tube_new_sn = st.text_input("Tube New S/N", value=default_tube_new_sn, key=f"tube_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
                 condition_options = ["", "Lost", "Damaged", "Fouled"]
-                tube_condition = st.selectbox("Tube Condition", options=condition_options, index=condition_options.index(default_tube_condition) if default_tube_condition in condition_options else 0, key="tube_condition", label_visibility="collapsed")
+                tube_condition = st.selectbox("Tube Condition", options=condition_options, index=condition_options.index(default_tube_condition) if default_tube_condition in condition_options else 0, key=f"tube_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                tube_details = st.text_input("Tube Details", value=default_tube_details, key="tube_details", label_visibility="collapsed")
+                tube_details = st.text_input("Tube Details", value=default_tube_details, key=f"tube_details{widget_key_suffix}", label_visibility="collapsed")
 
             # PTT row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("PTT")
             with col_old:
-                ptt_old_sn = st.text_input("PTT Old S/N", value=default_ptt_old_sn, key="ptt_old_sn", label_visibility="collapsed")
+                ptt_old_sn = st.text_input("PTT Old S/N", value=default_ptt_old_sn, key=f"ptt_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                ptt_new_sn = st.text_input("PTT New S/N", value=default_ptt_new_sn, key="ptt_new_sn", label_visibility="collapsed")
+                ptt_new_sn = st.text_input("PTT New S/N", value=default_ptt_new_sn, key=f"ptt_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                ptt_condition = st.selectbox("PTT Condition", options=condition_options, index=condition_options.index(default_ptt_condition) if default_ptt_condition in condition_options else 0, key="ptt_condition", label_visibility="collapsed")
+                ptt_condition = st.selectbox("PTT Condition", options=condition_options, index=condition_options.index(default_ptt_condition) if default_ptt_condition in condition_options else 0, key=f"ptt_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                ptt_details = st.text_input("PTT Details", value=default_ptt_details, key="ptt_details", label_visibility="collapsed")
+                ptt_details = st.text_input("PTT Details", value=default_ptt_details, key=f"ptt_details{widget_key_suffix}", label_visibility="collapsed")
 
             # ATRH row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("ATRH")
             with col_old:
-                atrh_old_sn = st.text_input("ATRH Old S/N", value=default_atrh_old_sn, key="atrh_old_sn", label_visibility="collapsed")
+                atrh_old_sn = st.text_input("ATRH Old S/N", value=default_atrh_old_sn, key=f"atrh_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                atrh_new_sn = st.text_input("ATRH New S/N", value=default_atrh_new_sn, key="atrh_new_sn", label_visibility="collapsed")
+                atrh_new_sn = st.text_input("ATRH New S/N", value=default_atrh_new_sn, key=f"atrh_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                atrh_condition = st.selectbox("ATRH Condition", options=condition_options, index=condition_options.index(default_atrh_condition) if default_atrh_condition in condition_options else 0, key="atrh_condition", label_visibility="collapsed")
+                atrh_condition = st.selectbox("ATRH Condition", options=condition_options, index=condition_options.index(default_atrh_condition) if default_atrh_condition in condition_options else 0, key=f"atrh_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                atrh_details = st.text_input("ATRH Details", value=default_atrh_details, key="atrh_details", label_visibility="collapsed")
+                atrh_details = st.text_input("ATRH Details", value=default_atrh_details, key=f"atrh_details{widget_key_suffix}", label_visibility="collapsed")
 
             # SST row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("SST")
             with col_old:
-                sst_old_sn = st.text_input("SST Old S/N", value=default_sst_old_sn, key="sst_old_sn", label_visibility="collapsed")
+                sst_old_sn = st.text_input("SST Old S/N", value=default_sst_old_sn, key=f"sst_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                sst_new_sn = st.text_input("SST New S/N", value=default_sst_new_sn, key="sst_new_sn", label_visibility="collapsed")
+                sst_new_sn = st.text_input("SST New S/N", value=default_sst_new_sn, key=f"sst_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                sst_condition = st.selectbox("SST Condition", options=condition_options, index=condition_options.index(default_sst_condition) if default_sst_condition in condition_options else 0, key="sst_condition", label_visibility="collapsed")
+                sst_condition = st.selectbox("SST Condition", options=condition_options, index=condition_options.index(default_sst_condition) if default_sst_condition in condition_options else 0, key=f"sst_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                sst_details = st.text_input("SST Details", value=default_sst_details, key="sst_details", label_visibility="collapsed")
+                sst_details = st.text_input("SST Details", value=default_sst_details, key=f"sst_details{widget_key_suffix}", label_visibility="collapsed")
 
             # Wind row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("Wind")
             with col_old:
-                wind_old_sn = st.text_input("Wind Old S/N", value=default_wind_old_sn, key="wind_old_sn", label_visibility="collapsed")
+                wind_old_sn = st.text_input("Wind Old S/N", value=default_wind_old_sn, key=f"wind_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                wind_new_sn = st.text_input("Wind New S/N", value=default_wind_new_sn, key="wind_new_sn", label_visibility="collapsed")
+                wind_new_sn = st.text_input("Wind New S/N", value=default_wind_new_sn, key=f"wind_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                wind_condition = st.selectbox("Wind Condition", options=condition_options, index=condition_options.index(default_wind_condition) if default_wind_condition in condition_options else 0, key="wind_condition", label_visibility="collapsed")
+                wind_condition = st.selectbox("Wind Condition", options=condition_options, index=condition_options.index(default_wind_condition) if default_wind_condition in condition_options else 0, key=f"wind_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                wind_details = st.text_input("Wind Details", value=default_wind_details, key="wind_details", label_visibility="collapsed")
+                wind_details = st.text_input("Wind Details", value=default_wind_details, key=f"wind_details{widget_key_suffix}", label_visibility="collapsed")
 
             # Rain row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("Rain")
             with col_old:
-                rain_old_sn = st.text_input("Rain Old S/N", value=default_rain_old_sn, key="rain_old_sn", label_visibility="collapsed")
+                rain_old_sn = st.text_input("Rain Old S/N", value=default_rain_old_sn, key=f"rain_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                rain_new_sn = st.text_input("Rain New S/N", value=default_rain_new_sn, key="rain_new_sn", label_visibility="collapsed")
+                rain_new_sn = st.text_input("Rain New S/N", value=default_rain_new_sn, key=f"rain_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                rain_condition = st.selectbox("Rain Condition", options=condition_options, index=condition_options.index(default_rain_condition) if default_rain_condition in condition_options else 0, key="rain_condition", label_visibility="collapsed")
+                rain_condition = st.selectbox("Rain Condition", options=condition_options, index=condition_options.index(default_rain_condition) if default_rain_condition in condition_options else 0, key=f"rain_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                rain_details = st.text_input("Rain Details", value=default_rain_details, key="rain_details", label_visibility="collapsed")
+                rain_details = st.text_input("Rain Details", value=default_rain_details, key=f"rain_details{widget_key_suffix}", label_visibility="collapsed")
 
             # SW Rad row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("SW Rad")
             with col_old:
-                swrad_old_sn = st.text_input("SW Rad Old S/N", value=default_swrad_old_sn, key="swrad_old_sn", label_visibility="collapsed")
+                swrad_old_sn = st.text_input("SW Rad Old S/N", value=default_swrad_old_sn, key=f"swrad_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                swrad_new_sn = st.text_input("SW Rad New S/N", value=default_swrad_new_sn, key="swrad_new_sn", label_visibility="collapsed")
+                swrad_new_sn = st.text_input("SW Rad New S/N", value=default_swrad_new_sn, key=f"swrad_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                swrad_condition = st.selectbox("SW Rad Condition", options=condition_options, index=condition_options.index(default_swrad_condition) if default_swrad_condition in condition_options else 0, key="swrad_condition", label_visibility="collapsed")
+                swrad_condition = st.selectbox("SW Rad Condition", options=condition_options, index=condition_options.index(default_swrad_condition) if default_swrad_condition in condition_options else 0, key=f"swrad_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                swrad_details = st.text_input("SW Rad Details", value=default_swrad_details, key="swrad_details", label_visibility="collapsed")
+                swrad_details = st.text_input("SW Rad Details", value=default_swrad_details, key=f"swrad_details{widget_key_suffix}", label_visibility="collapsed")
 
             # LWR Rad row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("LWR Rad")
             with col_old:
-                lwrad_old_sn = st.text_input("LWR Rad Old S/N", value=default_lwrad_old_sn, key="lwrad_old_sn", label_visibility="collapsed")
+                lwrad_old_sn = st.text_input("LWR Rad Old S/N", value=default_lwrad_old_sn, key=f"lwrad_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                lwrad_new_sn = st.text_input("LWR Rad New S/N", value=default_lwrad_new_sn, key="lwrad_new_sn", label_visibility="collapsed")
+                lwrad_new_sn = st.text_input("LWR Rad New S/N", value=default_lwrad_new_sn, key=f"lwrad_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                lwrad_condition = st.selectbox("LWR Rad Condition", options=condition_options, index=condition_options.index(default_lwrad_condition) if default_lwrad_condition in condition_options else 0, key="lwrad_condition", label_visibility="collapsed")
+                lwrad_condition = st.selectbox("LWR Rad Condition", options=condition_options, index=condition_options.index(default_lwrad_condition) if default_lwrad_condition in condition_options else 0, key=f"lwrad_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                lwrad_details = st.text_input("LWR Rad Details", value=default_lwrad_details, key="lwrad_details", label_visibility="collapsed")
+                lwrad_details = st.text_input("LWR Rad Details", value=default_lwrad_details, key=f"lwrad_details{widget_key_suffix}", label_visibility="collapsed")
 
             # Baro Press row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("Baro Press")
             with col_old:
-                baro_old_sn = st.text_input("Baro Press Old S/N", value=default_baro_old_sn, key="baro_old_sn", label_visibility="collapsed")
+                baro_old_sn = st.text_input("Baro Press Old S/N", value=default_baro_old_sn, key=f"baro_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                baro_new_sn = st.text_input("Baro Press New S/N", value=default_baro_new_sn, key="baro_new_sn", label_visibility="collapsed")
+                baro_new_sn = st.text_input("Baro Press New S/N", value=default_baro_new_sn, key=f"baro_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                baro_condition = st.selectbox("Baro Press Condition", options=condition_options, index=condition_options.index(default_baro_condition) if default_baro_condition in condition_options else 0, key="baro_condition", label_visibility="collapsed")
+                baro_condition = st.selectbox("Baro Press Condition", options=condition_options, index=condition_options.index(default_baro_condition) if default_baro_condition in condition_options else 0, key=f"baro_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                baro_details = st.text_input("Baro Press Details", value=default_baro_details, key="baro_details", label_visibility="collapsed")
+                baro_details = st.text_input("Baro Press Details", value=default_baro_details, key=f"baro_details{widget_key_suffix}", label_visibility="collapsed")
 
             # SeaCat row
             col_label, col_old, col_new, col_condition, col_details = st.columns([1.5, 2, 2, 2, 3])
             with col_label:
                 st.markdown("SeaCat")
             with col_old:
-                seacat_old_sn = st.text_input("SeaCat Old S/N", value=default_seacat_old_sn, key="seacat_old_sn", label_visibility="collapsed")
+                seacat_old_sn = st.text_input("SeaCat Old S/N", value=default_seacat_old_sn, key=f"seacat_old_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_new:
-                seacat_new_sn = st.text_input("SeaCat New S/N", value=default_seacat_new_sn, key="seacat_new_sn", label_visibility="collapsed")
+                seacat_new_sn = st.text_input("SeaCat New S/N", value=default_seacat_new_sn, key=f"seacat_new_sn{widget_key_suffix}", label_visibility="collapsed")
             with col_condition:
-                seacat_condition = st.selectbox("SeaCat Condition", options=condition_options, index=condition_options.index(default_seacat_condition) if default_seacat_condition in condition_options else 0, key="seacat_condition", label_visibility="collapsed")
+                seacat_condition = st.selectbox("SeaCat Condition", options=condition_options, index=condition_options.index(default_seacat_condition) if default_seacat_condition in condition_options else 0, key=f"seacat_condition{widget_key_suffix}", label_visibility="collapsed")
             with col_details:
-                seacat_details = st.text_input("SeaCat Details", value=default_seacat_details, key="seacat_details", label_visibility="collapsed")
+                seacat_details = st.text_input("SeaCat Details", value=default_seacat_details, key=f"seacat_details{widget_key_suffix}", label_visibility="collapsed")
 
             st.markdown("---")
             st.markdown("### Tube Exchange")
@@ -1412,17 +1421,17 @@ def main():
             col1, col2, col3 = st.columns([2, 2, 2])
             with col1:
                 st.markdown('Tube Time')
-                tube_time = st.text_input("Tube Time", value=default_tube_time, key="tube_time",
+                tube_time = st.text_input("Tube Time", value=default_tube_time, key=f"tube_time{widget_key_suffix}",
                                          placeholder="HH:MM", help="Time from tube clock",
                                          label_visibility="collapsed")
             with col2:
                 st.markdown("GMT")
-                gmt = st.text_input("GMT", value=default_gmt, key="gmt",
+                gmt = st.text_input("GMT", value=default_gmt, key=f"gmt{widget_key_suffix}",
                                         placeholder="HH:MM", help="Greenwich Mean Time",
                                         label_visibility="collapsed")
             with col3:
                 st.markdown("Drift (minutes)")
-                drift = st.text_input("Drift", value=default_drift, key="drift",
+                drift = st.text_input("Drift", value=default_drift, key=f"drift{widget_key_suffix}",
                                           placeholder="±MM", help="Time drift in minutes (+ fast, - slow)",
                                           label_visibility="collapsed")
 
@@ -1434,17 +1443,17 @@ def main():
             col1, col2, col3 = st.columns([2, 2, 2])
             with col1:
                 st.markdown("Bat Logic")
-                bat_logic = st.text_input("Bat Logic", value=default_bat_logic, key="bat_logic",
+                bat_logic = st.text_input("Bat Logic", value=default_bat_logic, key=f"bat_logic{widget_key_suffix}",
                                               placeholder="Volts", help="Battery logic serial number",
                                               label_visibility="collapsed")
             with col2:
                 st.markdown("Bat Transmit")
-                bat_transmit = st.text_input("Bat Transmit", value=default_bat_transmit, key="bat_transmit",
+                bat_transmit = st.text_input("Bat Transmit", value=default_bat_transmit, key=f"bat_transmit{widget_key_suffix}",
                                                  placeholder="Volts", help="Battery transmit interval",
                                                  label_visibility="collapsed")
             with col3:
                 st.markdown("Data Filename")
-                file_name = st.text_input("Filename", value=default_file_name, key="file_name",
+                file_name = st.text_input("Filename", value=default_file_name, key=f"file_name{widget_key_suffix}",
                                                  placeholder="e.g., TUBE_001.BIN", help="Downloaded data filename",
                                                  label_visibility="collapsed")
 
@@ -1477,42 +1486,42 @@ def main():
             with col_label:
                 st.markdown("**Ship**")
             with col_date:
-                ship_date = st.date_input("Ship Date", value=default_ship_date, key="ship_date", label_visibility="collapsed", format="MM/DD/YYYY")
+                ship_date = st.date_input("Ship Date", value=default_ship_date, key=f"ship_date{widget_key_suffix}", label_visibility="collapsed", format="MM/DD/YYYY")
             with col_time:
-                ship_time = st.text_input("Ship Time", value=default_ship_time, key="ship_time", placeholder="HH:MM", label_visibility="collapsed")
+                ship_time = st.text_input("Ship Time", value=default_ship_time, key=f"ship_time{widget_key_suffix}", placeholder="HH:MM", label_visibility="collapsed")
             with col_wind_dir:
-                ship_wind_dir = st.text_input("Ship Wind Dir", value=default_ship_wind_dir, key="ship_wind_dir", placeholder="deg", label_visibility="collapsed")
+                ship_wind_dir = st.text_input("Ship Wind Dir", value=default_ship_wind_dir, key=f"ship_wind_dir{widget_key_suffix}", placeholder="deg", label_visibility="collapsed")
             with col_wind_spd:
-                ship_wind_spd = st.text_input("Ship Wind Speed", value=default_ship_wind_spd, key="ship_wind_spd", placeholder="kts", label_visibility="collapsed")
+                ship_wind_spd = st.text_input("Ship Wind Speed", value=default_ship_wind_spd, key=f"ship_wind_spd{widget_key_suffix}", placeholder="kts", label_visibility="collapsed")
             with col_air_temp:
-                ship_air_temp = st.text_input("Ship Air Temp", value=default_ship_air_temp, key="ship_air_temp", placeholder="°C", label_visibility="collapsed")
+                ship_air_temp = st.text_input("Ship Air Temp", value=default_ship_air_temp, key=f"ship_air_temp{widget_key_suffix}", placeholder="°C", label_visibility="collapsed")
             with col_sst:
-                ship_sst = st.text_input("Ship SST", value=default_ship_sst, key="ship_sst", placeholder="°C", label_visibility="collapsed")
+                ship_sst = st.text_input("Ship SST", value=default_ship_sst, key=f"ship_sst{widget_key_suffix}", placeholder="°C", label_visibility="collapsed")
             with col_ssc:
-                ship_ssc = st.text_input("Ship SSC", value=default_ship_ssc, key="ship_ssc", placeholder="psu", label_visibility="collapsed")
+                ship_ssc = st.text_input("Ship SSC", value=default_ship_ssc, key=f"ship_ssc{widget_key_suffix}", placeholder="psu", label_visibility="collapsed")
             with col_rh:
-                ship_rh = st.text_input("Ship RH", value=default_ship_rh, key="ship_rh", placeholder="%", label_visibility="collapsed")
+                ship_rh = st.text_input("Ship RH", value=default_ship_rh, key=f"ship_rh{widget_key_suffix}", placeholder="%", label_visibility="collapsed")
 
             # Buoy row
             col_label, col_date, col_time, col_wind_dir, col_wind_spd, col_air_temp, col_sst, col_ssc, col_rh = st.columns([1, 1.5, 1, 1, 1.5, 1, 1, 1, 1])
             with col_label:
                 st.markdown("**Buoy**")
             with col_date:
-                buoy_date = st.date_input("Buoy Date", value=default_buoy_date, key="buoy_date", label_visibility="collapsed", format="MM/DD/YYYY")
+                buoy_date = st.date_input("Buoy Date", value=default_buoy_date, key=f"buoy_date{widget_key_suffix}", label_visibility="collapsed", format="MM/DD/YYYY")
             with col_time:
-                buoy_time = st.text_input("Buoy Time", value=default_buoy_time, key="buoy_time", placeholder="HH:MM", label_visibility="collapsed")
+                buoy_time = st.text_input("Buoy Time", value=default_buoy_time, key=f"buoy_time{widget_key_suffix}", placeholder="HH:MM", label_visibility="collapsed")
             with col_wind_dir:
-                buoy_wind_dir = st.text_input("Buoy Wind Dir", value=default_buoy_wind_dir, key="buoy_wind_dir", placeholder="deg", label_visibility="collapsed")
+                buoy_wind_dir = st.text_input("Buoy Wind Dir", value=default_buoy_wind_dir, key=f"buoy_wind_dir{widget_key_suffix}", placeholder="deg", label_visibility="collapsed")
             with col_wind_spd:
-                buoy_wind_spd = st.text_input("Buoy Wind Speed", value=default_buoy_wind_spd, key="buoy_wind_spd", placeholder="kts", label_visibility="collapsed")
+                buoy_wind_spd = st.text_input("Buoy Wind Speed", value=default_buoy_wind_spd, key=f"buoy_wind_spd{widget_key_suffix}", placeholder="kts", label_visibility="collapsed")
             with col_air_temp:
-                buoy_air_temp = st.text_input("Buoy Air Temp", value=default_buoy_air_temp, key="buoy_air_temp", placeholder="°C", label_visibility="collapsed")
+                buoy_air_temp = st.text_input("Buoy Air Temp", value=default_buoy_air_temp, key=f"buoy_air_temp{widget_key_suffix}", placeholder="°C", label_visibility="collapsed")
             with col_sst:
-                buoy_sst = st.text_input("Buoy SST", value=default_buoy_sst, key="buoy_sst", placeholder="°C", label_visibility="collapsed")
+                buoy_sst = st.text_input("Buoy SST", value=default_buoy_sst, key=f"buoy_sst{widget_key_suffix}", placeholder="°C", label_visibility="collapsed")
             with col_ssc:
-                buoy_ssc = st.text_input("Buoy SSC", value=default_buoy_ssc, key="buoy_ssc", placeholder="psu", label_visibility="collapsed")
+                buoy_ssc = st.text_input("Buoy SSC", value=default_buoy_ssc, key=f"buoy_ssc{widget_key_suffix}", placeholder="psu", label_visibility="collapsed")
             with col_rh:
-                buoy_rh = st.text_input("Buoy RH", value=default_buoy_rh, key="buoy_rh", placeholder="%", label_visibility="collapsed")
+                buoy_rh = st.text_input("Buoy RH", value=default_buoy_rh, key=f"buoy_rh{widget_key_suffix}", placeholder="%", label_visibility="collapsed")
 
             st.markdown("---")
             st.markdown("### Description of Visit")
@@ -1521,7 +1530,7 @@ def main():
                 "Description of Visit",
                 value=default_description_of_visit,
                 height=625,  # Approximately 25 lines
-                key="description_of_visit",
+                key=f"description_of_visit{widget_key_suffix}",
                 label_visibility="collapsed",
                 placeholder="Enter detailed description of the visit, repairs performed, observations, etc."
             )

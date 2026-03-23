@@ -161,7 +161,7 @@ with tab1:
 
         st.dataframe(
             display_df,
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             column_config={
                 "Beginning Date": st.column_config.DateColumn(
