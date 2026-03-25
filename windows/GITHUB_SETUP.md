@@ -109,14 +109,15 @@ git push -u origin main
 
 Once the repository is on GitHub:
 
+**Method 1: HTTPS (Recommended)**
+
+HTTPS works best on corporate/government networks where SSH port 22 may be blocked:
+
 ```cmd
 # Open Git Bash or Command Prompt
 cd C:\
 
-# Clone the repository
-git clone git@github.com:USERNAME/Cruise_Logs_Windows.git Cruise_Logs
-
-# Or with HTTPS:
+# Clone the repository using HTTPS
 git clone https://github.com/USERNAME/Cruise_Logs_Windows.git Cruise_Logs
 
 # Navigate into the directory
@@ -125,6 +126,21 @@ cd Cruise_Logs
 # Pull LFS files
 git lfs pull
 ```
+
+**Method 2: SSH (Alternative)**
+
+If you have SSH keys configured and port 22 is not blocked:
+
+```cmd
+cd C:\
+git clone git@github.com:USERNAME/Cruise_Logs_Windows.git Cruise_Logs
+cd Cruise_Logs
+git lfs pull
+```
+
+**Troubleshooting SSH Timeout:**
+- If SSH times out, use HTTPS (Method 1)
+- Or configure SSH to use port 443 (see SSH Key Setup section below)
 
 ## Git LFS Setup (Important!)
 
@@ -236,6 +252,67 @@ cat ~/.ssh/id_ed25519.pub
 ### Test connection:
 ```cmd
 ssh -T git@github.com
+```
+
+### SSH Troubleshooting
+
+**Issue: "Connection timed out" or "Could not read from remote repository"**
+
+This usually means SSH port 22 is blocked by a firewall (common on corporate/government networks).
+
+**Solution 1: Use HTTPS instead**
+```cmd
+git clone https://github.com/blake1237/Cruise_Logs.git
+```
+
+**Solution 2: Configure SSH to use port 443**
+
+Create or edit `C:\Users\YourName\.ssh\config`:
+
+```
+Host github.com
+  Hostname ssh.github.com
+  Port 443
+  User git
+```
+
+Test the connection:
+```cmd
+ssh -T -p 443 git@ssh.github.com
+```
+
+Now regular git commands will work:
+```cmd
+git clone git@github.com:blake1237/Cruise_Logs.git
+```
+
+**Issue: "Permission denied (publickey)"**
+
+Your SSH key is not configured properly.
+
+**Solutions:**
+1. Verify key is added to GitHub (Settings → SSH keys)
+2. Check SSH agent is running:
+   ```cmd
+   eval "$(ssh-agent -s)"
+   ssh-add ~/.ssh/id_ed25519
+   ```
+3. Verify key location:
+   ```cmd
+   ls -la ~/.ssh/
+   ```
+
+**Issue: SSH works but clone times out on large files**
+
+This is a Git LFS issue.
+
+**Solution:**
+```cmd
+# Clone without LFS first
+GIT_LFS_SKIP_SMUDGE=1 git clone git@github.com:blake1237/Cruise_Logs.git
+cd Cruise_Logs
+# Then pull LFS files
+git lfs pull
 ```
 
 ## Repository Permissions

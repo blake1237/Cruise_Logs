@@ -24,20 +24,36 @@ git lfs install
 
 Open **Git Bash** or **Command Prompt** and run:
 
+**Method 1: HTTPS (Recommended for Windows)**
+
+HTTPS works best on corporate/government networks where SSH port 22 may be blocked:
+
 ```cmd
 # Navigate to C:\ drive
 cd C:\
 
-# Clone the repository
-git clone git@github.com:blake1237/Cruise_Logs.git
+# Clone the repository using HTTPS
+git clone https://github.com/blake1237/Cruise_Logs.git
 ```
 
-Or if using HTTPS:
+**Method 2: SSH (Alternative)**
+
+If SSH is configured and port 22 is not blocked:
 
 ```cmd
 cd C:\
-git clone https://github.com/blake1237/Cruise_Logs.git
+git clone git@github.com:blake1237/Cruise_Logs.git
 ```
+
+**Troubleshooting SSH Timeout:**
+If SSH times out, use HTTPS (Method 1) or configure SSH to use port 443:
+- Create/edit `C:\Users\YourName\.ssh\config`
+- Add:
+  ```
+  Host github.com
+    Hostname ssh.github.com
+    Port 443
+  ```
 
 This will create `C:\Cruise_Logs` directory.
 

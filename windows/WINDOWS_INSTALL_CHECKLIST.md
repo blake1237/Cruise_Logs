@@ -40,12 +40,22 @@ A step-by-step checklist for setting up Cruise_Logs on a Windows field computer.
   cd C:\
   ```
 
-- [ ] Clone the repository (SSH method):
+- [ ] Clone the repository using **HTTPS** (recommended for Windows):
+  ```cmd
+  git clone https://github.com/blake1237/Cruise_Logs.git
+  ```
+  
+  **OR** Clone using SSH (if port 22 is not blocked):
   ```cmd
   git clone git@github.com:blake1237/Cruise_Logs.git
   ```
   
-  **OR** Clone using HTTPS:
+  **Note:** HTTPS works better on corporate/government networks where SSH port 22 may be blocked.
+</text>
+
+<old_text line=351>
+**Issue: Git clone fails with SSH**
+- [ ] Solution: Use HTTPS instead
   ```cmd
   git clone https://github.com/blake1237/Cruise_Logs.git
   ```
