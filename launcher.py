@@ -22,7 +22,7 @@ class CruiseLogsLauncher(ctk.CTk):
 
         # Configure window
         self.title("Cruise Logs - Application Launcher")
-        self.geometry("800x600")
+        self.geometry("800x700")
 
         # Center window on screen
         self.center_window()
@@ -56,7 +56,7 @@ class CruiseLogsLauncher(ctk.CTk):
         """Center the window on the screen"""
         self.update_idletasks()
         width = 800
-        height = 600
+        height = 700
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
@@ -88,7 +88,7 @@ class CruiseLogsLauncher(ctk.CTk):
         # Main container
         button_container = ctk.CTkFrame(self, fg_color="transparent")
         button_container.grid(row=1, column=0, padx=40, pady=20, sticky="nsew")
-        button_container.grid_rowconfigure((0, 1, 2), weight=1)
+        button_container.grid_rowconfigure((0, 1, 2, 3), weight=1)
         button_container.grid_columnconfigure((0, 1), weight=1)
 
         # Application definitions
@@ -134,6 +134,20 @@ class CruiseLogsLauncher(ctk.CTk):
                 "file": "adcp_rec_form.py",
                 "description": "ADCP recovery records",
                 "color": "#3d8f6f"
+            },
+            {
+                "name": "Release Inventory",
+                "icon": "🔍",
+                "file": "release_inventory_search.py",
+                "description": "Search acoustic releases",
+                "color": "#8d6f3d"
+            },
+            {
+                "name": "Nylon Inventory",
+                "icon": "🧵",
+                "file": "nylon_inventory_search.py",
+                "description": "Search nylon spools",
+                "color": "#9d7f4d"
             }
         ]
 

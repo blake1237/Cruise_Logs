@@ -36,6 +36,8 @@ Launch any of these applications with a single click:
 | **Repair Form** | 🔧 | Equipment repairs |
 | **ADCP Deployment** | 📡 | ADCP deployment records |
 | **ADCP Recovery** | 📥 | ADCP recovery records |
+| **Release Inventory** | 🔍 | Search acoustic releases |
+| **Nylon Inventory** | 🧵 | Search nylon spools |
 
 ---
 
@@ -115,6 +117,8 @@ python launcher.py
 │                                         │
 │  [📡 ADCP Deploy]  [📥 ADCP Recovery]  │
 │                                         │
+│  [🔍 Releases]     [🧵 Nylon]          │
+│                                         │
 ├─────────────────────────────────────────┤
 │  Status: Ready                          │
 ├─────────────────────────────────────────┤
@@ -123,7 +127,7 @@ python launcher.py
 ```
 
 **Features:**
-- 2x3 grid of large buttons
+- 2x4 grid of large buttons
 - Icon + Name + Description for each
 - Color-coded buttons with hover effects
 - Status bar showing activity

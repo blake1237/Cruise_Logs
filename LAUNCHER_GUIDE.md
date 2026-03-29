@@ -12,6 +12,8 @@ The **Cruise Logs Desktop Launcher** is a modern, native desktop application tha
 - 🔧 Repair Form
 - 📡 ADCP Deployment
 - 📥 ADCP Recovery
+- 🔍 Release Inventory
+- 🧵 Nylon Inventory
 
 ## 🎨 Desktop Launcher Features
 
@@ -32,7 +34,7 @@ The **Cruise Logs Desktop Launcher** is a modern, native desktop application tha
 - Large title: "🚢 Cruise Logs Management System"
 - Subtitle: "Select an application to launch"
 
-**Application Buttons (2x3 grid):**
+**Application Buttons (2x4 grid):**
 - Each button shows:
   - Large icon (emoji)
   - Application name
@@ -462,6 +464,8 @@ Listed in `requirements.txt`:
 - `repair_form_JSON.py` - Repair form
 - `adcp_dep_form.py` - ADCP deployment
 - `adcp_rec_form.py` - ADCP recovery
+- `release_inventory_search.py` - Release inventory search
+- `nylon_inventory_search.py` - Nylon inventory search
 
 ## 🔄 Updating
 
