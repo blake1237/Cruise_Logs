@@ -460,24 +460,22 @@ def main():
         print("Install it with: pip install customtkinter")
         sys.exit(1)
 
-    # Create a temporary root window for the password dialog
-    temp_root = ctk.CTk()
-    temp_root.withdraw()
+    # Create the admin launcher but keep it hidden
+    app = AdminLauncher()
+    app.withdraw()  # Hide the main window initially
 
     # Show password dialog
-    password_dialog = PasswordDialog(temp_root)
-    temp_root.wait_window(password_dialog)
+    password_dialog = PasswordDialog(app)
+    app.wait_window(password_dialog)
 
     # Check if authenticated
     if not password_dialog.authenticated:
         print("Authentication cancelled.")
-        temp_root.destroy()
+        app.destroy()
         sys.exit(0)
 
-    temp_root.destroy()
-
-    # Create and run the admin launcher
-    app = AdminLauncher()
+    # Authentication successful - show the main window
+    app.deiconify()
     app.mainloop()
 
 
