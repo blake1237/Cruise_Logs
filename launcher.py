@@ -22,13 +22,13 @@ class CruiseLogsLauncher(ctk.CTk):
 
         # Configure window
         self.title("Cruise Logs - Application Launcher")
-        self.geometry("800x700")
+        self.geometry("1000x600")
 
         # Center window on screen
         self.center_window()
 
         # Set minimum window size
-        self.minsize(700, 500)
+        self.minsize(900, 500)
 
         # Store running processes
         self.processes = {}
@@ -55,8 +55,8 @@ class CruiseLogsLauncher(ctk.CTk):
     def center_window(self):
         """Center the window on the screen"""
         self.update_idletasks()
-        width = 800
-        height = 700
+        width = 1000
+        height = 600
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
@@ -88,8 +88,8 @@ class CruiseLogsLauncher(ctk.CTk):
         # Main container
         button_container = ctk.CTkFrame(self, fg_color="transparent")
         button_container.grid(row=1, column=0, padx=40, pady=20, sticky="nsew")
-        button_container.grid_rowconfigure((0, 1, 2, 3), weight=1)
-        button_container.grid_columnconfigure((0, 1), weight=1)
+        button_container.grid_rowconfigure((0, 1, 2), weight=1)
+        button_container.grid_columnconfigure((0, 1, 2), weight=1)
 
         # Application definitions
         apps = [
@@ -151,10 +151,10 @@ class CruiseLogsLauncher(ctk.CTk):
             }
         ]
 
-        # Create buttons in grid
+        # Create buttons in grid (3 columns)
         for idx, app in enumerate(apps):
-            row = idx // 2
-            col = idx % 2
+            row = idx // 3
+            col = idx % 3
             self.create_app_button(button_container, app, row, col)
 
     def create_app_button(self, parent, app, row, col):
