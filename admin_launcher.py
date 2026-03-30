@@ -14,6 +14,15 @@ import threading
 from pathlib import Path
 import hashlib
 
+# Windows-specific subprocess flag to hide console windows
+if sys.platform == 'win32':
+    try:
+        CREATE_NO_WINDOW = subprocess.CREATE_NO_WINDOW
+    except AttributeError:
+        CREATE_NO_WINDOW = 0x08000000  # For older Python versions
+else:
+    CREATE_NO_WINDOW = 0
+
 # Set appearance mode and color theme
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
