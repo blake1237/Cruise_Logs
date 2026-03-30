@@ -309,14 +309,24 @@ class AdminLauncher(ctk.CTk):
         script_name = script['name']
         script_file = script['file']
 
+        print(f"DEBUG: run_import called for {script_name}")
+        print(f"DEBUG: script_file = {script_file}")
+        print(f"DEBUG: Current directory = {os.getcwd()}")
+
+        self.log_output(f"▶️ Starting {script_name}...\n")
+
         # Check if file exists
         if not os.path.exists(script_file):
             self.log_output(f"❌ Error: {script_file} not found!\n", error=True)
+            print(f"DEBUG: File not found: {script_file}")
             return
+        else:
+            print(f"DEBUG: File exists: {script_file}")
 
         # Check if we need to select an XML file
         xml_file = None
         if script.get('requires_file', False):
+            print(f"DEBUG: Requires XML file selection")
             from tkinter import filedialog
             xml_file = filedialog.askopenfilename(
                 title=f"Select XML file for {script_name}",
@@ -324,31 +334,43 @@ class AdminLauncher(ctk.CTk):
             )
             if not xml_file:
                 self.log_output(f"⚠️ Import cancelled - no file selected\n", warning=True)
+                print(f"DEBUG: No file selected, cancelled")
                 return
+            print(f"DEBUG: Selected file: {xml_file}")
+        else:
+            print(f"DEBUG: No XML file required")
 
         # Run in a separate thread
+        print(f"DEBUG: Starting thread for {script_name}")
         thread = threading.Thread(
             target=self._run_import_thread,
             args=(script_name, script_file, xml_file)
         )
         thread.daemon = True
         thread.start()
+        print(f"DEBUG: Thread started")
 
     def _run_import_thread(self, script_name, script_file, xml_file=None):
         """Run import script in a background thread"""
         try:
+            print(f"DEBUG: _run_import_thread started for {script_name}")
             self.log_output(f"\n{'='*60}\n")
             self.log_output(f"🚀 Running: {script_name}\n")
             if xml_file:
                 self.log_output(f"📁 File: {xml_file}\n")
             self.log_output(f"{'='*60}\n")
+            print(f"DEBUG: Logged header to console")
 
             # Build command with unbuffered Python for real-time output
             cmd = [sys.executable, "-u", script_file]
             if xml_file:
                 cmd.append(xml_file)
 
+            print(f"DEBUG: Command to run: {' '.join(cmd)}")
+            self.log_output(f"Command: {' '.join(cmd)}\n")
+
             # Run the import script with proper flags for Windows
+            print(f"DEBUG: Starting subprocess...")
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -358,15 +380,22 @@ class AdminLauncher(ctk.CTk):
                 universal_newlines=True,
                 creationflags=CREATE_NO_WINDOW if sys.platform == 'win32' else 0
             )
+            print(f"DEBUG: Subprocess started, PID: {process.pid}")
 
             # Read output line by line with real-time updates
+            print(f"DEBUG: Reading output...")
+            line_count = 0
             for line in iter(process.stdout.readline, ''):
                 if line:
+                    line_count += 1
+                    print(f"DEBUG: Line {line_count}: {line.strip()}")
                     self.log_output(line)
                     self.update()  # Force GUI update on each line
+            print(f"DEBUG: Finished reading output, {line_count} lines total")
 
             # Wait for completion
             return_code = process.wait()
+            print(f"DEBUG: Process finished with return code: {return_code}")
 
             if return_code == 0:
                 self.log_output(f"\n✅ {script_name} completed successfully!\n", success=True)
@@ -374,6 +403,9 @@ class AdminLauncher(ctk.CTk):
                 self.log_output(f"\n❌ {script_name} failed with error code {return_code}\n", error=True)
 
         except Exception as e:
+            print(f"DEBUG: Exception in _run_import_thread: {e}")
+            import traceback
+            traceback.print_exc()
             self.log_output(f"\n❌ Error running {script_name}: {str(e)}\n", error=True)
 
     def log_output(self, message, error=False, warning=False, success=False):
