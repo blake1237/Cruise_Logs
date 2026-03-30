@@ -7,6 +7,9 @@ echo Cruise Logs - Application Launcher
 echo ========================================
 echo.
 
+REM Initialize conda for this shell
+call %USERPROFILE%\anaconda3\Scripts\activate.bat
+
 REM Activate conda environment
 echo Activating base environment...
 call conda activate base
@@ -48,7 +51,7 @@ if errorlevel 1 (
 REM Start the launcher (using pythonw to avoid console window)
 echo Starting Cruise Logs Launcher...
 echo.
-start "" pythonw launcher.py
+pythonw launcher.py
 exit
 
 REM If launcher exits with error, show message
