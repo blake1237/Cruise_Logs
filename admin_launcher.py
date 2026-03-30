@@ -27,18 +27,10 @@ class PasswordDialog(ctk.CTkToplevel):
         super().__init__(parent)
 
         self.title("Admin Authentication")
-        self.geometry("400x200")
         self.resizable(False, False)
-
-        # Center on screen
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - 200
-        y = (self.winfo_screenheight() // 2) - 100
-        self.geometry(f'400x200+{x}+{y}')
 
         # Make modal
         self.transient(parent)
-        self.grab_set()
 
         self.password = None
         self.authenticated = False
@@ -102,6 +94,19 @@ class PasswordDialog(ctk.CTkToplevel):
             font=ctk.CTkFont(size=11)
         )
         self.error_label.pack()
+
+        # Force geometry update and center after all widgets are created
+        self.update_idletasks()
+        width = 400
+        height = 200
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+
+        # Ensure dialog is visible and focused
+        self.grab_set()
+        self.focus_force()
+        self.lift()
 
     def check_password(self):
         """Verify the entered password"""
