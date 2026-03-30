@@ -32,8 +32,10 @@ class PasswordDialog(ctk.CTkToplevel):
         # Make modal
         self.transient(parent)
 
+        # Store parent reference
+        self.parent_window = parent
+
         self.password = None
-        self.authenticated = False
 
         # Title
         title_label = ctk.CTkLabel(
@@ -114,7 +116,7 @@ class PasswordDialog(ctk.CTkToplevel):
         entered_hash = hashlib.sha256(entered_password.encode()).hexdigest()
 
         if entered_hash == PASSWORD_HASH:
-            self.authenticated = True
+            self.parent_window.authenticated = True
             self.destroy()
         else:
             self.error_label.configure(text="❌ Incorrect password. Please try again.")
@@ -123,13 +125,16 @@ class PasswordDialog(ctk.CTkToplevel):
 
     def cancel(self):
         """Cancel authentication"""
-        self.authenticated = False
+        self.parent_window.authenticated = False
         self.destroy()
 
 
 class AdminLauncher(ctk.CTk):
     def __init__(self):
         super().__init__()
+
+        # Authentication flag
+        self.authenticated = False
 
         # Configure window
         self.title("Cruise Logs - Admin Tools")
@@ -465,23 +470,38 @@ def main():
         print("Install it with: pip install customtkinter")
         sys.exit(1)
 
-    # Create the admin launcher but keep it hidden
-    app = AdminLauncher()
-    app.withdraw()  # Hide the main window initially
+    try:
+        # Create the admin launcher but keep it hidden
+        print("Creating admin launcher...")
+        app = AdminLauncher()
+        app.withdraw()  # Hide the main window initially
 
-    # Show password dialog
-    password_dialog = PasswordDialog(app)
-    app.wait_window(password_dialog)
+        # Force update to ensure window is ready
+        app.update()
 
-    # Check if authenticated
-    if not password_dialog.authenticated:
-        print("Authentication cancelled.")
-        app.destroy()
-        sys.exit(0)
+        # Show password dialog
+        print("Showing password dialog...")
+        password_dialog = PasswordDialog(app)
 
-    # Authentication successful - show the main window
-    app.deiconify()
-    app.mainloop()
+        # Wait for dialog to close
+        app.wait_window(password_dialog)
+
+        # Check if authenticated
+        if not app.authenticated:
+            print("Authentication cancelled or failed.")
+            app.destroy()
+            sys.exit(0)
+
+        # Authentication successful - show the main window
+        print("Authentication successful! Opening admin tools...")
+        app.deiconify()
+        app.mainloop()
+
+    except Exception as e:
+        print(f"Error starting admin launcher: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
