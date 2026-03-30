@@ -17,11 +17,11 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Change to Cruise_Logs directory
-echo Changing to C:\Cruise_Logs...
-cd /d C:\Cruise_Logs
+REM Change to the directory where this batch file is located
+echo Navigating to Cruise_Logs directory...
+cd /d "%~dp0.."
 if errorlevel 1 (
-    echo ERROR: Could not find C:\Cruise_Logs directory
+    echo ERROR: Could not navigate to Cruise_Logs directory
     pause
     exit /b 1
 )
