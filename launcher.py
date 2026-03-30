@@ -11,6 +11,15 @@ import os
 import threading
 from pathlib import Path
 
+# Windows-specific subprocess flag to hide console windows
+if sys.platform == 'win32':
+    try:
+        CREATE_NO_WINDOW = subprocess.CREATE_NO_WINDOW
+    except AttributeError:
+        CREATE_NO_WINDOW = 0x08000000  # For older Python versions
+else:
+    CREATE_NO_WINDOW = 0
+
 # Set appearance mode and color theme
 ctk.set_appearance_mode("dark")  # Modes: "System" (default), "Dark", "Light"
 ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
@@ -258,12 +267,12 @@ class CruiseLogsLauncher(ctk.CTk):
         try:
             self.update_status(f"🚀 Launching {app_name}...")
 
-            # Launch streamlit
+            # Launch streamlit without showing console window
             process = subprocess.Popen(
                 [sys.executable, "-m", "streamlit", "run", app_file],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
+                creationflags=CREATE_NO_WINDOW if sys.platform == 'win32' else 0
             )
 
             # Store process

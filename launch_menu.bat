@@ -45,10 +45,11 @@ if errorlevel 1 (
     )
 )
 
-REM Start the launcher
+REM Start the launcher (using pythonw to avoid console window)
 echo Starting Cruise Logs Launcher...
 echo.
-python launcher.py
+start "" pythonw launcher.py
+exit
 
 REM If launcher exits with error, show message
 if errorlevel 1 (
