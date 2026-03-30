@@ -5,6 +5,8 @@ Password-protected administrative tools for database management
 """
 
 import customtkinter as ctk
+import tkinter as tk
+from tkinter import simpledialog, messagebox
 import subprocess
 import sys
 import os
@@ -22,119 +24,51 @@ ctk.set_default_color_theme("blue")
 PASSWORD_HASH = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"  # admin123
 
 
-class PasswordDialog(ctk.CTkToplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
+def check_password():
+    """Show password dialog and verify password"""
+    # Create a temporary root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
 
-        self.title("Admin Authentication")
-        self.resizable(False, False)
+    # Show password input dialog
+    password = simpledialog.askstring(
+        "Admin Authentication",
+        "🔐 Enter administrator password:",
+        show='●',
+        parent=root
+    )
 
-        # Make modal
-        self.transient(parent)
+    root.destroy()
 
-        # Store parent reference
-        self.parent_window = parent
+    # Check if cancelled
+    if password is None:
+        return False
 
-        self.password = None
+    # Verify password
+    entered_hash = hashlib.sha256(password.encode()).hexdigest()
 
-        # Title
-        title_label = ctk.CTkLabel(
-            self,
-            text="🔐 Administrator Access Required",
-            font=ctk.CTkFont(size=18, weight="bold")
+    if entered_hash == PASSWORD_HASH:
+        return True
+    else:
+        # Show error and try again
+        temp_root = tk.Tk()
+        temp_root.withdraw()
+        retry = messagebox.askyesno(
+            "Authentication Failed",
+            "❌ Incorrect password.\n\nTry again?",
+            parent=temp_root
         )
-        title_label.pack(pady=(20, 10))
+        temp_root.destroy()
 
-        # Info label
-        info_label = ctk.CTkLabel(
-            self,
-            text="Please enter the administrator password:",
-            font=ctk.CTkFont(size=12)
-        )
-        info_label.pack(pady=(0, 20))
-
-        # Password entry
-        self.password_entry = ctk.CTkEntry(
-            self,
-            width=300,
-            placeholder_text="Enter password",
-            show="●"
-        )
-        self.password_entry.pack(pady=10)
-        self.password_entry.bind("<Return>", lambda e: self.check_password())
-        self.password_entry.focus()
-
-        # Button frame
-        button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        button_frame.pack(pady=20)
-
-        # OK button
-        ok_button = ctk.CTkButton(
-            button_frame,
-            text="OK",
-            width=120,
-            command=self.check_password
-        )
-        ok_button.pack(side="left", padx=5)
-
-        # Cancel button
-        cancel_button = ctk.CTkButton(
-            button_frame,
-            text="Cancel",
-            width=120,
-            command=self.cancel,
-            fg_color="gray",
-            hover_color="darkgray"
-        )
-        cancel_button.pack(side="left", padx=5)
-
-        # Error label (hidden initially)
-        self.error_label = ctk.CTkLabel(
-            self,
-            text="",
-            text_color="red",
-            font=ctk.CTkFont(size=11)
-        )
-        self.error_label.pack()
-
-        # Force geometry update and center after all widgets are created
-        self.update_idletasks()
-        width = 400
-        height = 200
-        x = (self.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.winfo_screenheight() // 2) - (height // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
-
-        # Ensure dialog is visible and focused
-        self.grab_set()
-        self.focus_force()
-        self.lift()
-
-    def check_password(self):
-        """Verify the entered password"""
-        entered_password = self.password_entry.get()
-        entered_hash = hashlib.sha256(entered_password.encode()).hexdigest()
-
-        if entered_hash == PASSWORD_HASH:
-            self.parent_window.authenticated = True
-            self.destroy()
+        if retry:
+            return check_password()  # Recursive call to try again
         else:
-            self.error_label.configure(text="❌ Incorrect password. Please try again.")
-            self.password_entry.delete(0, 'end')
-            self.password_entry.focus()
-
-    def cancel(self):
-        """Cancel authentication"""
-        self.parent_window.authenticated = False
-        self.destroy()
+            return False
 
 
 class AdminLauncher(ctk.CTk):
     def __init__(self):
         super().__init__()
-
-        # Authentication flag
-        self.authenticated = False
 
         # Configure window
         self.title("Cruise Logs - Admin Tools")
@@ -471,30 +405,15 @@ def main():
         sys.exit(1)
 
     try:
-        # Create the admin launcher but keep it hidden
-        print("Creating admin launcher...")
-        app = AdminLauncher()
-        app.withdraw()  # Hide the main window initially
-
-        # Force update to ensure window is ready
-        app.update()
-
-        # Show password dialog
+        # Show password dialog first
         print("Showing password dialog...")
-        password_dialog = PasswordDialog(app)
-
-        # Wait for dialog to close
-        app.wait_window(password_dialog)
-
-        # Check if authenticated
-        if not app.authenticated:
+        if not check_password():
             print("Authentication cancelled or failed.")
-            app.destroy()
             sys.exit(0)
 
-        # Authentication successful - show the main window
+        # Authentication successful - create and show the main window
         print("Authentication successful! Opening admin tools...")
-        app.deiconify()
+        app = AdminLauncher()
         app.mainloop()
 
     except Exception as e:
