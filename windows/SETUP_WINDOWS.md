@@ -93,49 +93,15 @@ pip install streamlit pandas xlrd openpyxl
 - `sqlite3` - Database (comes with Python)
 
 ### 6. Update File Paths in Python Scripts
+### 6. Verify Database Paths (No Changes Needed!)
 
-Several Python files contain hardcoded paths that need to be updated for Windows. You'll need to edit these files:
+**Good news:** All Python files now use **relative paths** that work on both Windows and macOS automatically!
 
-#### Files to Update:
+All files use: `DB_PATH = "Cruise_Logs.db"`
 
-**1. `adcp_dep_form.py`** (Line 9)
-```python
-# Change from:
-DB_PATH = '/Users/lake/Github/Cruise_Logs/Cruise_Logs.db'
+**No path changes required** - as long as you run applications from the `C:\Cruise_Logs` directory, everything will work.
 
-# To:
-DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'
-```
-
-**2. `cruise_form.py`** (Line 8)
-```python
-# Change from:
-DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
-
-# To:
-DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'
-```
-
-**3. `rec_form_JSON.py`** (Line 11)
-```python
-# Change from:
-DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
-
-# To:
-DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'
-```
-
-**4. `repair_form_JSON.py`** (Line 10)
-```python
-# Change from:
-DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
-
-# To:
-DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'
-```
-
-**Note:** The `r` prefix before the string makes it a raw string, so backslashes are treated literally.
-
+### 7. Run Setup Verification
 **Alternative:** Use relative paths (works on all platforms):
 ```python
 DB_PATH = "Cruise_Logs.db"
@@ -343,17 +309,15 @@ conda env create -f environment_windows.yml
 conda list
 ```
 
-## Summary of File Paths to Update
+## Cross-Platform Compatibility
 
-After cloning, update these files to use Windows paths:
+**All database paths are now relative and cross-platform!**
 
-1. `adcp_dep_form.py` → Line 9: `DB_PATH`
-2. `cruise_form.py` → Line 8: `DB_PATH`  
-3. `rec_form_JSON.py` → Line 11: `DB_PATH`
-4. `repair_form_JSON.py` → Line 10: `DB_PATH`
-5. `db_sync2.py` → Line 1: shebang (or just use `python db_sync2.py`)
+All Python files use: `DB_PATH = "Cruise_Logs.db"`
 
-**Best Practice:** Consider making these paths use relative references or `os.path.join()` for cross-platform compatibility.
+**No file path updates needed** - works on both Windows and macOS as long as you run from the Cruise_Logs directory.
+
+The only platform-specific file is `db_sync2.py` → Line 1: shebang (just use `python db_sync2.py` on Windows)
 
 ## Quick Start Checklist
 
@@ -361,8 +325,7 @@ After cloning, update these files to use Windows paths:
 - [ ] Git and Git LFS installed
 - [ ] Repository cloned to `C:\Cruise_Logs`
 - [ ] Conda environment created and activated
-- [ ] Python packages installed (streamlit, pandas, xlrd)
-- [ ] Database paths updated in Python files
+- [ ] Python packages installed (streamlit, pandas, xlrd, customtkinter)
 - [ ] Database file pulled via Git LFS
 - [ ] Tested at least one Streamlit app
 - [ ] Created desktop shortcuts (optional)

@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 # Database configuration
-DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
+DB_PATH = "Cruise_Logs.db"
 
 
 

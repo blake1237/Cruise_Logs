@@ -123,27 +123,14 @@ A step-by-step checklist for setting up Cruise_Logs on a Windows field computer.
   streamlit version
   ```
 
-### 5. Update File Paths for Windows
+### 5. Verify Database Paths (No Changes Needed!)
 
-You need to update database paths in several Python files:
+**Good news:** All Python files now use **relative paths** that work automatically on both Windows and macOS!
 
-- [ ] **File: `adcp_dep_form.py`** (around Line 9)
-  - Find: `DB_PATH = '/Users/lake/Github/Cruise_Logs/Cruise_Logs.db'`
-  - Change to: `DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'`
+- [ ] **Verify** all files use: `DB_PATH = "Cruise_Logs.db"`
+- [ ] **No manual editing required** - as long as you run from `C:\Cruise_Logs` directory
 
-- [ ] **File: `cruise_form.py`** (around Line 8)
-  - Find: `DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")`
-  - Change to: `DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'`
-
-- [ ] **File: `rec_form_JSON.py`** (around Line 11)
-  - Find: `DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")`
-  - Change to: `DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'`
-
-- [ ] **File: `repair_form_JSON.py`** (around Line 10)
-  - Find: `DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")`
-  - Change to: `DB_PATH = r'C:\Cruise_Logs\Cruise_Logs.db'`
-
-**Tip:** Use Notepad++, VS Code, or any text editor to make these changes.
+All database paths are now cross-platform compatible!
 
 ### 6. Run Setup Verification
 
@@ -299,7 +286,7 @@ If you need to access the application from other computers on the network:
 - [ ] All required Python packages are installed
 - [ ] Repository is at `C:\Cruise_Logs`
 - [ ] Database file `Cruise_Logs.db` is present and > 1MB
-- [ ] Database paths updated in all Python files
+- [ ] Database paths are relative (no changes needed!)
 - [ ] Main cruise form launches successfully
 - [ ] Search apps work correctly
 - [ ] Excel import scripts run without errors

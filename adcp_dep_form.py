@@ -7,7 +7,7 @@ import os
 import math
 
 # Database configuration
-DB_PATH = '/Users/lake/Github/Cruise_Logs/Cruise_Logs.db'
+DB_PATH = 'Cruise_Logs.db'
 
 def get_spool_info(spool_sn):
     """Look up spool information from spool inventory table."""

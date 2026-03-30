@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
 # Database configuration
-DB_PATH = os.path.expanduser("~/Github/Cruise_Logs/Cruise_Logs.db")
+DB_PATH = "Cruise_Logs.db"
 
 if not os.path.exists(DB_PATH):
     print(f"WARNING: Database file not found at {DB_PATH}")
