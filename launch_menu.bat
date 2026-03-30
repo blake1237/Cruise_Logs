@@ -8,11 +8,11 @@ echo ========================================
 echo.
 
 REM Activate conda environment
-echo Activating cruise_logs environment...
-call conda activate cruise_logs
+echo Activating base environment...
+call conda activate base
 if errorlevel 1 (
-    echo ERROR: Failed to activate conda environment 'cruise_logs'
-    echo Please ensure the environment exists: conda env list
+    echo ERROR: Failed to activate conda environment 'base'
+    echo Please ensure conda is installed properly
     pause
     exit /b 1
 )
