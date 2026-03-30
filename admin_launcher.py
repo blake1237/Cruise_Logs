@@ -343,23 +343,27 @@ class AdminLauncher(ctk.CTk):
                 self.log_output(f"📁 File: {xml_file}\n")
             self.log_output(f"{'='*60}\n")
 
-            # Build command
-            cmd = [sys.executable, script_file]
+            # Build command with unbuffered Python for real-time output
+            cmd = [sys.executable, "-u", script_file]
             if xml_file:
                 cmd.append(xml_file)
 
-            # Run the import script
+            # Run the import script with proper flags for Windows
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
+                bufsize=1,
+                universal_newlines=True,
+                creationflags=CREATE_NO_WINDOW if sys.platform == 'win32' else 0
             )
 
-            # Read output line by line
-            for line in process.stdout:
-                self.log_output(line)
+            # Read output line by line with real-time updates
+            for line in iter(process.stdout.readline, ''):
+                if line:
+                    self.log_output(line)
+                    self.update()  # Force GUI update on each line
 
             # Wait for completion
             return_code = process.wait()
