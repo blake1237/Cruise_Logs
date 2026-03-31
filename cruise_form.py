@@ -1,23 +1,22 @@
-import streamlit as st
-import sqlite3
-import pandas as pd
-from datetime import datetime, date
 import os
+import sqlite3
+from datetime import date, datetime
+
+import pandas as pd
+import streamlit as st
 
 # Database configuration
 DB_PATH = "Cruise_Logs.db"
 
 # Page configuration
-st.set_page_config(
-    page_title="GTMBA Cruise Information",
-    page_icon="🚢",
-    layout="wide"
-)
+st.set_page_config(page_title="GTMBA Cruise Information", page_icon="🚢", layout="wide")
+
 
 # Database connection
 def get_connection():
     """Create a database connection"""
     return sqlite3.connect(DB_PATH)
+
 
 def parse_date(date_value):
     """Parse date from various formats"""
@@ -29,7 +28,7 @@ def parse_date(date_value):
         return pd.to_datetime(date_value)
 
     # Try different formats
-    formats = ['%Y-%m-%d', '%m/%d/%Y', '%Y/%m/%d', '%d/%m/%Y']
+    formats = ["%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d", "%d/%m/%Y"]
     for fmt in formats:
         try:
             return pd.to_datetime(date_value, format=fmt)
@@ -41,6 +40,7 @@ def parse_date(date_value):
         return pd.to_datetime(date_value)
     except:
         return None
+
 
 def get_cruise_data():
     """Get all cruise data"""
@@ -66,19 +66,21 @@ def get_cruise_data():
 
     return df
 
+
 def insert_cruise(data):
     """Insert a new cruise record"""
     conn = get_connection()
     cursor = conn.cursor()
 
-    columns = ', '.join([f'"{k}"' for k in data.keys()])
-    placeholders = ', '.join(['?' for _ in data])
+    columns = ", ".join([f'"{k}"' for k in data.keys()])
+    placeholders = ", ".join(["?" for _ in data])
     values = tuple(data.values())
 
     query = f"INSERT INTO Cruise_Info ({columns}) VALUES ({placeholders})"
     cursor.execute(query, values)
     conn.commit()
     conn.close()
+
 
 def get_unique_values(column):
     """Get unique values for a column (for dropdowns)"""
@@ -87,6 +89,7 @@ def get_unique_values(column):
     result = pd.read_sql_query(query, conn)
     conn.close()
     return result[column].tolist()
+
 
 # Main app
 st.title("🚢 GTMBA Cruise Information")
@@ -113,7 +116,9 @@ with tab1:
         selected_line = st.selectbox("Filter by Line", lines)
 
     with col4:
-        search_personnel = st.text_input("Search Personnel", placeholder="e.g., Stratton")
+        search_personnel = st.text_input(
+            "Search Personnel", placeholder="e.g., Stratton"
+        )
 
     # Date range filter
     col1, col2 = st.columns(2)
@@ -127,24 +132,24 @@ with tab1:
 
     # Apply filters
     if search_cruise:
-        df = df[df['Cruise'].str.contains(search_cruise, case=False, na=False)]
+        df = df[df["Cruise"].str.contains(search_cruise, case=False, na=False)]
 
     if selected_ship != "All":
-        df = df[df['Ship'] == selected_ship]
+        df = df[df["Ship"] == selected_ship]
 
     if selected_line != "All":
-        df = df[df['Lines'] == selected_line]
+        df = df[df["Lines"] == selected_line]
 
     if search_personnel:
-        df = df[df['Personnel'].str.contains(search_personnel, case=False, na=False)]
+        df = df[df["Personnel"].str.contains(search_personnel, case=False, na=False)]
 
     if start_date:
-        df['Beginning Date'] = df['Beginning Date'].apply(parse_date)
-        df = df[df['Beginning Date'] >= pd.to_datetime(start_date)]
+        df["Beginning Date"] = df["Beginning Date"].apply(parse_date)
+        df = df[df["Beginning Date"] >= pd.to_datetime(start_date)]
 
     if end_date:
-        df['Ending Date'] = df['Ending Date'].apply(parse_date)
-        df = df[df['Ending Date'] <= pd.to_datetime(end_date)]
+        df["Ending Date"] = df["Ending Date"].apply(parse_date)
+        df = df[df["Ending Date"] <= pd.to_datetime(end_date)]
 
     # Display results
     st.subheader(f"Found {len(df)} cruises")
@@ -155,28 +160,23 @@ with tab1:
         show_id = st.checkbox("Show ID column", value=False)
 
         if not show_id:
-            display_df = df.drop('id', axis=1)
+            display_df = df.drop("id", axis=1)
         else:
             display_df = df
 
         st.dataframe(
             display_df,
-            width='stretch',
+            use_container_width=True,
             hide_index=True,
             column_config={
                 "Beginning Date": st.column_config.DateColumn(
-                    "Beginning Date",
-                    format="MMM DD, YYYY"
+                    "Beginning Date", format="MMM DD, YYYY"
                 ),
                 "Ending Date": st.column_config.DateColumn(
-                    "Ending Date",
-                    format="MMM DD, YYYY"
+                    "Ending Date", format="MMM DD, YYYY"
                 ),
-                "Leg": st.column_config.NumberColumn(
-                    "Leg",
-                    format="%d"
-                )
-            }
+                "Leg": st.column_config.NumberColumn("Leg", format="%d"),
+            },
         )
 
         # Export option
@@ -185,7 +185,7 @@ with tab1:
             label="📥 Download as CSV",
             data=csv,
             file_name=f"cruise_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv"
+            mime="text/csv",
         )
     else:
         st.info("No cruises found matching your criteria.")
@@ -232,7 +232,7 @@ with tab2:
                         "Ending_Date": ending_date.strftime("%Y-%m-%d"),
                         "Port1": port1 if port1 else None,
                         "Port2": port2 if port2 else None,
-                        "Port3": port3 if port3 else None
+                        "Port3": port3 if port3 else None,
                     }
 
                     try:
@@ -256,5 +256,5 @@ st.markdown(
         Database: <code>{DB_PATH}</code>
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
