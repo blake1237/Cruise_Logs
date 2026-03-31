@@ -4,9 +4,7 @@ from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
-
-# Database configuration
-DB_PATH = "Cruise_Logs.db"
+from config import DB_PATH
 
 # Page configuration
 st.set_page_config(page_title="GTMBA Cruise Information", page_icon="🚢", layout="wide")
