@@ -5,9 +5,45 @@ import json
 from datetime import datetime, date, time
 import os
 import numpy as np
+from config import DB_PATH
 
-# Database configuration
-DB_PATH = "Cruise_Logs.db"
+# Debug: Print database path information
+print(f"[DEBUG] Database Path: {DB_PATH}")
+print(f"[DEBUG] Database Exists: {os.path.exists(DB_PATH)}")
+if os.path.exists(DB_PATH):
+    print(f"[DEBUG] Database Size: {os.path.getsize(DB_PATH)} bytes")
+
+
+def get_db_connection():
+    """Create a database connection."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def check_database_table():
+    """Check if the repair_normalized table exists and return its columns."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if table exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='repair_normalized'
+        """)
+        if not cursor.fetchone():
+            conn.close()
+            return False, []
+
+        # Get column names
+        cursor.execute("PRAGMA table_info(repair_normalized)")
+        columns = [col[1] for col in cursor.fetchall()]
+        conn.close()
+        return True, columns
+    except Exception as e:
+        print(f"Database check error: {e}")
+        return False, []
 
 
 
@@ -523,6 +559,20 @@ def main():
         layout="wide",
         initial_sidebar_state="collapsed"
     )
+
+    # Debug information
+    st.sidebar.markdown("### Debug Info")
+    st.sidebar.text(f"DB Path: {DB_PATH}")
+    st.sidebar.text(f"DB Exists: {os.path.exists(DB_PATH)}")
+
+    # Check database table status
+    table_exists, columns = check_database_table()
+    if not table_exists:
+        st.error(f"⚠️ ERROR: The 'repair_normalized' table was not found in the database!")
+        st.error(f"Database path: {DB_PATH}")
+        st.error(f"Database exists: {os.path.exists(DB_PATH)}")
+        st.info("Please run the diagnostic script: `python diagnose_db.py`")
+        st.stop()
 
     # Ensure new columns exist in the database
     ensure_columns_exist()

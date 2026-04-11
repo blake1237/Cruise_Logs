@@ -6,6 +6,7 @@ Streamlit app to search the release inventory by serial number
 import streamlit as st
 import sqlite3
 import pandas as pd
+from config import DB_PATH
 
 # Set page config
 st.set_page_config(page_title="Release Inventory Search", layout="wide")
@@ -16,7 +17,7 @@ st.title("Acoustic Release Inventory Search")
 # Database connection
 @st.cache_resource
 def get_connection():
-    return sqlite3.connect('Cruise_Logs.db', check_same_thread=False)
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
 
 conn = get_connection()
 

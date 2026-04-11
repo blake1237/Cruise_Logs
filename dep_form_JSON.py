@@ -4,9 +4,7 @@ import pandas as pd
 import json
 from datetime import datetime, date, time
 import os
-
-# Database configuration
-DB_PATH = "Cruise_Logs.db"
+from config import DB_PATH
 
 
 

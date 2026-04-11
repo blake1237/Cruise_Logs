@@ -6,13 +6,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-
-# Database configuration
-DB_PATH = "Cruise_Logs.db"
-
-if not os.path.exists(DB_PATH):
-    print(f"WARNING: Database file not found at {DB_PATH}")
-
+from config import DB_PATH
 def check_database_table():
     """Check if recoveries_normalized table exists and get column info."""
     conn = get_db_connection()

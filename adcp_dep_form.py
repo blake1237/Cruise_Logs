@@ -5,9 +5,7 @@ import json
 from datetime import datetime, date, time
 import os
 import math
-
-# Database configuration
-DB_PATH = 'Cruise_Logs.db'
+from config import DB_PATH
 
 def get_spool_info(spool_sn):
     """Look up spool information from spool inventory table."""
