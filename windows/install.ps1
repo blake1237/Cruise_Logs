@@ -274,7 +274,7 @@ if ($Response -eq "yes") {
         # Launcher Shortcut
         Write-Info "Creating 'Cruise Logs - Launcher' shortcut..."
         $LnkPath = "$DesktopPath\Cruise Logs - Launcher.lnk"
-        $Target = "$CondaPath\envs\cruise_logs\Scripts\pythonw.exe"
+        $Target = "$CondaPath\pythonw.exe"
         $Arguments = "`"$InstallPath\launcher.py`""
 
         $Link = $ShellLink.CreateShortcut($LnkPath)
