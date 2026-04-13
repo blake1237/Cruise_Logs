@@ -1,0 +1,76 @@
+CRUISE_LOGS WINDOWS INSTALLATION
+================================
+
+QUICK START - Copy and paste this command:
+
+powershell -ExecutionPolicy Bypass -File install.ps1
+
+
+DETAILED STEPS:
+
+1. Copy install.ps1 to your Desktop (or any folder)
+
+2. Right-click on Windows PowerShell
+   Select: "Run as Administrator"
+
+3. Paste this command and press Enter:
+
+   powershell -ExecutionPolicy Bypass -File install.ps1
+
+4. Wait 10-20 minutes for installation to complete
+
+5. Look for desktop shortcuts:
+   - "Cruise Logs - Main Form" - Click to start
+   - "Cruise Logs - Launcher" - Alternative launcher
+
+
+WHAT IF THE FILE IS NOT ON DESKTOP?
+
+If install.ps1 is in a different location, use the full path:
+
+powershell -ExecutionPolicy Bypass -File "C:\full\path\to\install.ps1"
+
+Example:
+powershell -ExecutionPolicy Bypass -File "C:\Users\John\Downloads\install.ps1"
+
+
+TROUBLESHOOTING:
+
+Error: "execution policy"
+Solution: Run this first:
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+Then run the install command above.
+
+
+Error: "file not found"
+Solution: Make sure install.ps1 exists in the location you specified.
+Use the full path in the command.
+
+
+Installation hangs or takes too long
+Solution: This is normal with large downloads. Wait up to 30 minutes.
+If truly stuck (no new text for 10+ minutes), press Ctrl+C and try again.
+
+
+AFTER INSTALLATION:
+
+Method 1 (Easiest):
+  Double-click "Cruise Logs - Main Form" on your desktop
+
+Method 2 (Command line):
+  Open Command Prompt or PowerShell and type:
+  conda activate cruise_logs
+  cd C:\Cruise_Logs
+  streamlit run cruise_form.py
+
+
+QUESTIONS?
+
+See the FIELD_DEPLOYMENT_GUIDE.md file in the windows folder.
+It has more detailed troubleshooting and help.
+
+
+VERSION: 1.0
+Created: 2024
+For: Cruise_Logs Windows Field Installation
