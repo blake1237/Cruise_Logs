@@ -31,13 +31,13 @@ class CruiseLogsLauncher(ctk.CTk):
 
         # Configure window
         self.title("Cruise Logs - Application Launcher")
-        self.geometry("1000x600")
+        self.geometry("1000x750")
 
         # Center window on screen
         self.center_window()
 
         # Set minimum window size
-        self.minsize(900, 500)
+        self.minsize(900, 650)
 
         # Store running processes
         self.processes = {}
@@ -65,7 +65,7 @@ class CruiseLogsLauncher(ctk.CTk):
         """Center the window on the screen"""
         self.update_idletasks()
         width = 1000
-        height = 600
+        height = 750
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
